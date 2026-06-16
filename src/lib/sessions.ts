@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sessionTime, sportFor, type SportId } from "@/lib/data";
 
+export type ScheduleSportId = SportId | "rest";
+
 export interface SessionRow {
   id: string;
   crew_id: string;
@@ -8,6 +10,7 @@ export interface SessionRow {
   sport_id: string;
   starts_at: string;
   notes: string | null;
+  is_override?: boolean;
 }
 
 export type AttendanceStatus = "going" | "maybe" | "out";
