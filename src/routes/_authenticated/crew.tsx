@@ -289,6 +289,54 @@ function MessageItem({
   );
 }
 
+function PushTestButton() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const send = useServerFn(sendTestPush);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+  }, []);
+
+  if (email?.toLowerCase() !== ADMIN_EMAIL) return null;
+
+  const onClick = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await send();
+      setResult(r.ok ? "Sent ✓ — check your device" : `Failed (${r.status})`);
+    } catch (e: any) {
+      setResult(e?.message ?? "Error");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setResult(null), 4000);
+    }
+  };
+
+  return (
+    <div className="mt-3 bg-surface border border-dashed border-border rounded-2xl p-3 flex items-center gap-3">
+      <div className="size-9 rounded-full bg-primary/15 text-primary grid place-items-center shrink-0">
+        <BellRing className="size-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Admin tools</p>
+        <p className="text-xs leading-tight">Send yourself a test push</p>
+        {result && <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">{result}</p>}
+      </div>
+      <button
+        onClick={onClick}
+        disabled={busy}
+        className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition"
+      >
+        {busy ? "Sending…" : "Test"}
+      </button>
+    </div>
+  );
+}
+
+
 function ProfileEditor() {
   const profile = useMyProfile();
   const qc = useQueryClient();
