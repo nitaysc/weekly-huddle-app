@@ -214,6 +214,18 @@ function HomePage() {
         </div>
       </section>
 
+      {/* Who's in */}
+      <section className="px-6 mb-8 animate-in">
+        <h3 className="font-display text-xl uppercase mb-3">Who's in</h3>
+        <div className="space-y-3">
+          <RsvpRow label="Going" tone="going" members={goingMembers} />
+          <RsvpRow label="Maybe" tone="maybe" members={maybeMembers} />
+          <RsvpRow label="Can't" tone="out" members={outMembers} />
+        </div>
+      </section>
+
+
+
       {/* Week strip */}
       <section className="mb-8 animate-in">
         <div className="px-6 flex justify-between items-center mb-3">
