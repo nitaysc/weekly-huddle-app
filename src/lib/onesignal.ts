@@ -6,7 +6,16 @@ declare global {
   interface Window {
     OneSignalDeferred?: Array<(os: any) => void>;
     OneSignal?: any;
+    median?: any;
   }
+}
+
+/** True when running inside the Median native wrapper. */
+function isMedianApp(): boolean {
+  if (typeof window === "undefined") return false;
+  if (typeof window.median !== "undefined") return true;
+  const ua = navigator.userAgent || "";
+  return /median|gonative/i.test(ua);
 }
 
 let injected = false;
@@ -17,6 +26,10 @@ export function initOneSignal() {
   if (injected) return;
   injected = true;
 
+  // Inside the Median wrapper, the native OneSignal plugin handles everything.
+  // Loading the web SDK would create a second, conflicting subscription.
+  if (isMedianApp()) return;
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
@@ -26,7 +39,6 @@ export function initOneSignal() {
         notifyButton: { enable: false },
       });
     } catch (err) {
-      // Inside the Despia/native wrapper OneSignal is handled natively, this is fine.
       console.warn("[OneSignal] init skipped:", err);
     }
   });
@@ -40,6 +52,21 @@ export function initOneSignal() {
 /** Tag the current user so server-side sends can target them. */
 export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   if (typeof window === "undefined") return;
+
+  // Median native OneSignal plugin: set externalId via JS Bridge so the
+  // native subscription is reachable via include_aliases.external_id.
+  if (isMedianApp()) {
+    try {
+      const m = window.median;
+      // The Median bridge exposes onesignal.externalUser.set
+      m?.onesignal?.externalUser?.set?.({ externalId: userId });
+      if (crewId) m?.onesignal?.tags?.setTags?.({ crew_id: crewId });
+    } catch (err) {
+      console.warn("[Median OneSignal] identify failed:", err);
+    }
+    return;
+  }
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
