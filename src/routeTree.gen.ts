@@ -9,38 +9,99 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StatsRouteImport } from './routes/stats'
+import { Route as PlanRouteImport } from './routes/plan'
+import { Route as CrewRouteImport } from './routes/crew'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityIdRouteImport } from './routes/activity.$id'
 
+const StatsRoute = StatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrewRoute = CrewRouteImport.update({
+  id: '/crew',
+  path: '/crew',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityIdRoute = ActivityIdRouteImport.update({
+  id: '/activity/$id',
+  path: '/activity/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/crew': typeof CrewRoute
+  '/plan': typeof PlanRoute
+  '/stats': typeof StatsRoute
+  '/activity/$id': typeof ActivityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/crew': typeof CrewRoute
+  '/plan': typeof PlanRoute
+  '/stats': typeof StatsRoute
+  '/activity/$id': typeof ActivityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/crew': typeof CrewRoute
+  '/plan': typeof PlanRoute
+  '/stats': typeof StatsRoute
+  '/activity/$id': typeof ActivityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
+  id: '__root__' | '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CrewRoute: typeof CrewRoute
+  PlanRoute: typeof PlanRoute
+  StatsRoute: typeof StatsRoute
+  ActivityIdRoute: typeof ActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/stats': {
+      id: '/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crew': {
+      id: '/crew'
+      path: '/crew'
+      fullPath: '/crew'
+      preLoaderRoute: typeof CrewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +109,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity/$id': {
+      id: '/activity/$id'
+      path: '/activity/$id'
+      fullPath: '/activity/$id'
+      preLoaderRoute: typeof ActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CrewRoute: CrewRoute,
+  PlanRoute: PlanRoute,
+  StatsRoute: StatsRoute,
+  ActivityIdRoute: ActivityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
