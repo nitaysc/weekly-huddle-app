@@ -81,7 +81,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "basket",
     duration: 90,
     difficulty: "Medium",
-    location: "Court 4, North Park",
+    location: "Neorim School",
     equipment: ["Court shoes", "Ball (provided)", "Water"],
     description:
       "Warm up with shooting drills, then 4v4 half court to 21. Bring your A-game and your jumper.",
