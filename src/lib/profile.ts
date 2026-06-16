@@ -31,7 +31,7 @@ export async function updateMyProfile(updates: {
   const uid = u.user?.id;
   if (!uid) throw new Error("Not signed in");
 
-  const patch: Record<string, unknown> = {};
+  const patch: { display_name?: string; initials?: string; avatar_url?: string | null } = {};
   if (updates.display_name !== undefined) {
     const name = updates.display_name.trim() || "Friend";
     patch.display_name = name;
