@@ -111,7 +111,7 @@ function ActivityPage() {
   const dayLabel = sessionStart.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 stagger">
       {/* Hero */}
       <div className="relative">
         <img
