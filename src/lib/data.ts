@@ -37,7 +37,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "boxing",
     duration: 75,
     difficulty: "Hard",
-    location: "Iron House Gym",
+    location: "Gan Miriam",
     equipment: ["Hand wraps", "16oz gloves", "Mouthguard", "Water"],
     description:
       "Technical pad and bag rounds focused on the 1-2-3, defensive slips and lateral movement. Three-minute rounds with a one-minute rest.",
@@ -59,7 +59,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "cali",
     duration: 60,
     difficulty: "Medium",
-    location: "Riverside Park Bars",
+    location: "Gan Miriam",
     equipment: ["Chalk", "Resistance band", "Water"],
     description:
       "Bodyweight strength circuit at the outdoor bars. Push, pull and core in a triset, scaled to your level.",
@@ -81,7 +81,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "basket",
     duration: 90,
     difficulty: "Medium",
-    location: "Court 4, North Park",
+    location: "Neorim School",
     equipment: ["Court shoes", "Ball (provided)", "Water"],
     description:
       "Warm up with shooting drills, then 4v4 half court to 21. Bring your A-game and your jumper.",
@@ -102,7 +102,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "volley",
     duration: 90,
     difficulty: "Medium",
-    location: "Beach Court B",
+    location: "Gan Miriam",
     equipment: ["Kneepads", "Court shoes", "Sunscreen", "Water"],
     description:
       "Pepper drills, jump serves, then a full match. We rotate teams every set.",

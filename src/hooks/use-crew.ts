@@ -17,6 +17,7 @@ export interface ProfileRow {
   display_name: string;
   initials: string;
   avatar_color: string;
+  avatar_url: string | null;
 }
 
 export interface CrewMemberRow {
@@ -91,7 +92,7 @@ export function useCrewMembers(crewId: string | null | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("crew_members")
-        .select("user_id, crew_id, role, joined_at, profiles:user_id(id, display_name, initials, avatar_color)")
+        .select("user_id, crew_id, role, joined_at, profiles:user_id(id, display_name, initials, avatar_color, avatar_url)")
         .eq("crew_id", crewId!);
       if (error) throw error;
       return (data ?? []).map((r: any) => ({
