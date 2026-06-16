@@ -144,7 +144,10 @@ function CrewPage() {
           Share this code so friends can join your crew
         </p>
         <ProfileEditor />
+        <NotificationPrompt />
+        <PushTestButton />
       </section>
+
 
       <section className="mb-6 animate-in">
         <div className="flex gap-4 overflow-x-auto px-6 pb-2 no-scrollbar">
