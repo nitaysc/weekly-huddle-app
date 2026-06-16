@@ -14,7 +14,7 @@ const WEB_PUSH_HOST = "weekly-huddle-app.lovable.app";
 let lastIdentifiedUser: { userId: string; crewId?: string | null } | null = null;
 
 /** True when running inside the Median native wrapper. */
-function isMedianApp(): boolean {
+export function isMedianApp(): boolean {
   if (typeof window === "undefined") return false;
   if (typeof window.median !== "undefined") return true;
   const ua = navigator.userAgent || "";

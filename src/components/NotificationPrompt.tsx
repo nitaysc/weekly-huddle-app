@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bell, X } from "lucide-react";
-import { getPushPermission, requestPushPermission } from "@/lib/onesignal";
+import { getPushPermission, requestPushPermission, isMedianApp } from "@/lib/onesignal";
 
 const DISMISS_KEY = "sf:pushPromptDismissedAt";
 const DISMISS_DAYS = 7;
@@ -10,6 +10,10 @@ export function NotificationPrompt() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // Inside the Median app, the OS handles permission natively at install time.
+    // The web Notification API always reports "default" in the webview, so don't
+    // nag users who already enabled it natively.
+    if (isMedianApp()) return;
     const perm = getPushPermission();
     if (perm !== "default") return;
     const ts = Number(localStorage.getItem(DISMISS_KEY) ?? 0);
