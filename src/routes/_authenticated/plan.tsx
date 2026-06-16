@@ -276,11 +276,11 @@ function EditDaySheet({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center px-0 pb-24" onClick={onClose}>
       <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-[440px] bg-surface border-t border-border rounded-t-3xl flex flex-col animate-in"
-        style={{ maxHeight: "90vh" }}
+        style={{ maxHeight: "calc(100dvh - 7rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 pb-3 shrink-0">
@@ -446,7 +446,7 @@ function EditDaySheet({
 
         <div
           className="shrink-0 p-4 border-t border-border bg-surface flex gap-2"
-          style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+          style={{ paddingBottom: "calc(1rem + max(env(safe-area-inset-bottom), 12px))" }}
         >
           {!advanced || sport === "rest" ? (
             <button
