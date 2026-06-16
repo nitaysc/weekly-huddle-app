@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Flame, Target, TrendingUp } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import { SPORTS, type SportId } from "@/lib/data";
 import { useActiveCrew, useCrewMembers, useMyProfile } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
