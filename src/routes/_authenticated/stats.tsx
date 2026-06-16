@@ -136,6 +136,7 @@ function StatsPage() {
       name: m.profile?.display_name ?? "Friend",
       initials: m.profile?.initials ?? "··",
       color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
+      avatarUrl: m.profile?.avatar_url ?? null,
       count: tallies.get(m.user_id) ?? 0,
     }))
     .sort((a, b) => b.count - a.count);
