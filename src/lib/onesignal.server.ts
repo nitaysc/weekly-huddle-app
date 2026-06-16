@@ -7,7 +7,7 @@ interface SendArgs {
   externalUserIds: string[];
   headings: string;
   contents: string;
-  /** Path or absolute URL. Relative paths are resolved against the production origin so clicking the notification opens the app, not a Google search. */
+  /** Path or absolute URL. Relative paths are resolved against the production origin. */
   url?: string;
   data?: Record<string, unknown>;
   /** Collapse key — newer notifications replace older ones with the same key */
@@ -48,12 +48,13 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
   if (launchUrl) {
-    // Use the single cross-platform `url` field. In native wrappers (Median), this opens
-    // inside the app's webview instead of the system browser. `app_url` would force-open
-    // the OS browser, which is what we want to avoid.
-    payload.url = launchUrl;
+    // Median opens tapped native notifications from Additional Data `targetUrl`.
+    // OneSignal's normal launch URL opens externally, so reserve `web_url` for browser push only.
+    payload.web_url = launchUrl;
   }
-  if (args.data) payload.data = args.data;
+  const notificationData: Record<string, unknown> = { ...(args.data ?? {}) };
+  if (launchUrl) notificationData.targetUrl = launchUrl;
+  if (Object.keys(notificationData).length > 0) payload.data = notificationData;
   if (args.collapseId) {
     payload.web_push_topic = args.collapseId;
     payload.collapse_id = args.collapseId;
