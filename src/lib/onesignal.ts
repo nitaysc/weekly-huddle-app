@@ -11,6 +11,7 @@ declare global {
 }
 
 const WEB_PUSH_HOST = "weekly-huddle-app.lovable.app";
+let lastIdentifiedUser: { userId: string; crewId?: string | null } | null = null;
 
 /** True when running inside the Median native wrapper. */
 function isMedianApp(): boolean {
@@ -18,6 +19,11 @@ function isMedianApp(): boolean {
   if (typeof window.median !== "undefined") return true;
   const ua = navigator.userAgent || "";
   return /median|gonative/i.test(ua);
+}
+
+function canUseWebPushHost(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname === WEB_PUSH_HOST || window.location.hostname === "localhost";
 }
 
 let injected = false;
@@ -34,7 +40,7 @@ export function initOneSignal() {
 
   // OneSignal web push is bound to the published domain configured in OneSignal.
   // Preview/editor domains throw "Can only be used on..." and prevent clean setup.
-  if (window.location.hostname !== WEB_PUSH_HOST && window.location.hostname !== "localhost") return;
+  if (!canUseWebPushHost()) return;
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
