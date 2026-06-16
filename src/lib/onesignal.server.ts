@@ -12,6 +12,8 @@ interface SendArgs {
   data?: Record<string, unknown>;
   /** Collapse key — newer notifications replace older ones with the same key */
   collapseId?: string;
+  /** Send only to native app subscriptions so taps open the Median APK, not browser web push. */
+  nativeOnly?: boolean;
 }
 
 function normalizeRestApiKey(value: string) {
@@ -55,6 +57,11 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{
     chrome_web_icon: `${SITE_ORIGIN}/favicon.ico`,
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
+  if (args.nativeOnly) {
+    payload.isAndroid = true;
+    payload.isIos = true;
+    payload.isAnyWeb = false;
+  }
   // Median opens tapped notifications from Additional Data `targetUrl` inside the
   // app's webview. Any top-level `url`/`web_url`/`app_url` on the OneSignal payload
   // causes the OS to open the link externally in the browser instead — so we
