@@ -59,7 +59,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "cali",
     duration: 60,
     difficulty: "Medium",
-    location: "Riverside Park Bars",
+    location: "Gan Miriam",
     equipment: ["Chalk", "Resistance band", "Water"],
     description:
       "Bodyweight strength circuit at the outdoor bars. Push, pull and core in a triset, scaled to your level.",
