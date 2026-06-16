@@ -102,7 +102,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "volley",
     duration: 90,
     difficulty: "Medium",
-    location: "Beach Court B",
+    location: "Gan Miriam",
     equipment: ["Kneepads", "Court shoes", "Sunscreen", "Water"],
     description:
       "Pepper drills, jump serves, then a full match. We rotate teams every set.",
