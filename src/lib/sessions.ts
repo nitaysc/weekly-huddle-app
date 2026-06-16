@@ -44,10 +44,10 @@ export function toDateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Ensure a session row exists for a given date in the active crew. Returns it. */
+/** Ensure a session row exists for a given date in the active crew. Returns it.
+ *  Honors owner overrides: if a row already exists (even on a rotation rest day),
+ *  it is returned as-is instead of being skipped. */
 export async function ensureSession(crewId: string, date: Date): Promise<SessionRow | null> {
-  const sId = sportFor(date);
-  if (!sId) return null;
   const key = toDateKey(date);
   const { data: existing, error: fetchErr } = await supabase
     .from("sessions")
@@ -57,6 +57,11 @@ export async function ensureSession(crewId: string, date: Date): Promise<Session
     .maybeSingle();
   if (fetchErr) throw fetchErr;
   if (existing) return existing as SessionRow;
+
+  // No row yet — fall back to default rotation. If the rotation has no sport
+  // for this day either, there is nothing to RSVP to.
+  const sId = sportFor(date);
+  if (!sId) return null;
 
   const starts = sessionTime(date).toISOString();
   const { data, error } = await supabase
