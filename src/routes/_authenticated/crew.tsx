@@ -138,6 +138,7 @@ function CrewPage() {
           Share this code so friends can join your crew
         </p>
         <NotificationCTA />
+        <ProfileEditor />
       </section>
 
       <section className="mb-6 animate-in">
@@ -147,6 +148,7 @@ function CrewPage() {
               <Avatar
                 initials={m.profile?.initials ?? "··"}
                 color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                imageUrl={m.profile?.avatar_url ?? null}
                 size={48}
                 ring="border-background"
               />
