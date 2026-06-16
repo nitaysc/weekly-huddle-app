@@ -213,7 +213,7 @@ function PlanPage() {
             onClose={() => setEditing(null)}
             onSave={async (sport, overrides) => {
               await setSessionOverrides(activeCrew!.id, editing, sport, overrides);
-              qc.invalidateQueries({ queryKey: sessionsKey });
+              invalidateAll();
               setEditing(null);
             }}
             onQuickPick={async (sport) => {
