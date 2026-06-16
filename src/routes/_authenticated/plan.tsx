@@ -431,36 +431,26 @@ function EditDaySheet({
                   </div>
                   <Row label="Equipment (one per line)">
                     <textarea
-                      rows={3}
+                      rows={4}
                       className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={(form.equipment ?? []).join("\n")}
-                      onChange={(e) => setForm({ ...form, equipment: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                      value={equipmentText}
+                      onChange={(e) => setEquipmentText(e.target.value)}
                     />
                   </Row>
                   <Row label="Warm-up (one per line)">
                     <textarea
-                      rows={3}
+                      rows={4}
                       className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={(form.warmup ?? []).join("\n")}
-                      onChange={(e) => setForm({ ...form, warmup: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                      value={warmupText}
+                      onChange={(e) => setWarmupText(e.target.value)}
                     />
                   </Row>
                   <Row label="Session plan (one per line: Title | Detail)">
                     <textarea
-                      rows={4}
+                      rows={6}
                       className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={(form.workout ?? []).map((w) => `${w.title} | ${w.detail}`).join("\n")}
-                      onChange={(e) => setForm({
-                        ...form,
-                        workout: e.target.value.split("\n")
-                          .map((line) => {
-                            const [t, ...rest] = line.split("|");
-                            const title = (t ?? "").trim();
-                            const detail = rest.join("|").trim();
-                            return title ? { title, detail } : null;
-                          })
-                          .filter(Boolean) as Array<{ title: string; detail: string }>,
-                      })}
+                      value={workoutText}
+                      onChange={(e) => setWorkoutText(e.target.value)}
                     />
                   </Row>
                   <Row label="Notes for the crew">
@@ -471,6 +461,7 @@ function EditDaySheet({
                       onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     />
                   </Row>
+
                 </div>
               )}
             </>
