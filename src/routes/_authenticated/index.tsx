@@ -163,6 +163,7 @@ function HomePage() {
                       key={m.user_id}
                       initials={m.profile?.initials ?? "··"}
                       color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                      imageUrl={m.profile?.avatar_url ?? null}
                       ring="border-background"
                     />
                   ))}
