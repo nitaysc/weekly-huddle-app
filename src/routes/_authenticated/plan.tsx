@@ -30,7 +30,6 @@ function PlanPage() {
   const days = weekDates(anchor);
   const rotation = rotationFor(anchor);
   const { activeCrew, crews } = useActiveCrew();
-  const profile = useMyProfile();
   const members = useCrewMembers(activeCrew?.id);
   const qc = useQueryClient();
 
