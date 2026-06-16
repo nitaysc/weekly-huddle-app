@@ -151,7 +151,8 @@ export async function requestPushPermission() {
 
   if (isMedianApp()) {
     try {
-      const os = window.median?.onesignal;
+      const os = await waitForMedianOneSignal();
+      if (!os) return false;
       os?.userPrivacyConsent?.grant?.();
       os?.register?.();
       if (lastIdentifiedUser) {
