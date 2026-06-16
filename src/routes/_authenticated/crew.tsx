@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Check, Send, LogOut } from "lucide-react";
+import { Copy, Check, Send, LogOut, Camera, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
+import { uploadAvatar, updateMyProfile } from "@/lib/profile";
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
@@ -77,12 +78,13 @@ function CrewPage() {
 
   const myId = profile.data?.id;
   const memberMap = useMemo(() => {
-    const map = new Map<string, { name: string; initials: string; color: string }>();
+    const map = new Map<string, { name: string; initials: string; color: string; avatarUrl: string | null }>();
     (members.data ?? []).forEach((m) => {
       map.set(m.user_id, {
         name: m.profile?.display_name ?? "Friend",
         initials: m.profile?.initials ?? "··",
         color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
+        avatarUrl: m.profile?.avatar_url ?? null,
       });
     });
     return map;
@@ -136,6 +138,7 @@ function CrewPage() {
           Share this code so friends can join your crew
         </p>
         <NotificationCTA />
+        <ProfileEditor />
       </section>
 
       <section className="mb-6 animate-in">
@@ -145,6 +148,7 @@ function CrewPage() {
               <Avatar
                 initials={m.profile?.initials ?? "··"}
                 color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                imageUrl={m.profile?.avatar_url ?? null}
                 size={48}
                 ring="border-background"
               />
@@ -214,25 +218,24 @@ function MessageItem({
 }: {
   msg: MessageRow;
   mine: boolean;
-  author?: { name: string; initials: string; color: string };
+  author?: { name: string; initials: string; color: string; avatarUrl: string | null };
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const reactionEntries = Object.entries(msg.reactions ?? {});
 
   return (
     <div className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
-      <div
-        className="size-7 rounded-full grid place-items-center font-mono text-[9px] font-bold text-background shrink-0"
-        style={{ background: author?.color ?? "hsl(195 70% 55%)" }}
-      >
-        {author?.initials ?? "··"}
-      </div>
+      <Avatar
+        initials={author?.initials ?? "··"}
+        color={author?.color ?? "hsl(195 70% 55%)"}
+        imageUrl={author?.avatarUrl ?? null}
+        size={28}
+        ring="border-surface"
+      />
       <div className={`max-w-[75%] flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}>
-        {!mine && (
-          <span className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">
-            {author?.name ?? "Friend"}
-          </span>
-        )}
+        <span className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">
+          {mine ? "You" : author?.name ?? "Friend"}
+        </span>
         <button
           onClick={() => setPickerOpen((v) => !v)}
           className={`px-3 py-2 rounded-2xl text-sm text-left ${
@@ -305,5 +308,106 @@ function NotificationCTA() {
           : "Tap to turn on alerts for chat messages, RSVPs, and upcoming sessions."}
       </p>
     </button>
+  );
+}
+
+function ProfileEditor() {
+  const profile = useMyProfile();
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+
+  useEffect(() => {
+    if (profile.data?.display_name && !editingName) {
+      setName(profile.data.display_name);
+    }
+  }, [profile.data?.display_name, editingName]);
+
+  const me = profile.data;
+  if (!me) return null;
+
+  const onPick = () => fileRef.current?.click();
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setBusy(true);
+    try {
+      const url = await uploadAvatar(f);
+      await updateMyProfile({ avatar_url: url });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["my-profile"] }),
+        qc.invalidateQueries({ queryKey: ["crew-members"] }),
+      ]);
+    } catch (err) {
+      console.error(err);
+      alert("Could not upload photo. Try a smaller image.");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const saveName = async () => {
+    if (!name.trim() || name.trim() === me.display_name) {
+      setEditingName(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateMyProfile({ display_name: name });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["my-profile"] }),
+        qc.invalidateQueries({ queryKey: ["crew-members"] }),
+      ]);
+      setEditingName(false);
+    } catch (err) {
+      console.error(err);
+      alert("Could not update name.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 bg-surface border border-border rounded-2xl p-4 flex items-center gap-3">
+      <button onClick={onPick} className="relative shrink-0 active:scale-95 transition" disabled={busy} aria-label="Change photo">
+        <Avatar
+          initials={me.initials}
+          color={me.avatar_color}
+          imageUrl={me.avatar_url}
+          size={56}
+          ring="border-surface"
+        />
+        <span className="absolute -bottom-1 -right-1 size-6 rounded-full bg-primary text-primary-foreground grid place-items-center border-2 border-surface">
+          {busy ? <Loader2 className="size-3 animate-spin" /> : <Camera className="size-3" />}
+        </span>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Your profile</p>
+        {editingName ? (
+          <div className="flex gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveName()}
+              autoFocus
+              className="flex-1 bg-background border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
+            />
+            <button onClick={saveName} disabled={busy} className="px-2 py-1 bg-primary text-primary-foreground rounded-lg text-xs font-mono uppercase disabled:opacity-50">
+              Save
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setEditingName(true)} className="text-left">
+            <p className="font-display text-lg uppercase leading-none truncate">{me.display_name}</p>
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name · photo</p>
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
