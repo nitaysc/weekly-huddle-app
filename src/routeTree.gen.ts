@@ -9,30 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StatsRouteImport } from './routes/stats'
-import { Route as PlanRouteImport } from './routes/plan'
-import { Route as CrewRouteImport } from './routes/crew'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
+import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
+import { Route as AuthenticatedCrewRouteImport } from './routes/_authenticated/crew'
 import { Route as AuthenticatedActivityIdRouteImport } from './routes/_authenticated/activity.$id'
 
-const StatsRoute = StatsRouteImport.update({
-  id: '/stats',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
+  id: '/_authenticated/stats',
   path: '/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlanRoute = PlanRouteImport.update({
-  id: '/plan',
+const AuthenticatedPlanRoute = AuthenticatedPlanRouteImport.update({
+  id: '/_authenticated/plan',
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CrewRoute = CrewRouteImport.update({
-  id: '/crew',
+const AuthenticatedCrewRoute = AuthenticatedCrewRouteImport.update({
+  id: '/_authenticated/crew',
   path: '/crew',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedActivityIdRoute = AuthenticatedActivityIdRouteImport.update({
@@ -42,77 +42,77 @@ const AuthenticatedActivityIdRoute = AuthenticatedActivityIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/crew': typeof CrewRoute
-  '/plan': typeof PlanRoute
-  '/stats': typeof StatsRoute
+  '/crew': typeof AuthenticatedCrewRoute
+  '/plan': typeof AuthenticatedPlanRoute
+  '/stats': typeof AuthenticatedStatsRoute
+  '/': typeof AuthenticatedIndexRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/crew': typeof CrewRoute
-  '/plan': typeof PlanRoute
-  '/stats': typeof StatsRoute
+  '/crew': typeof AuthenticatedCrewRoute
+  '/plan': typeof AuthenticatedPlanRoute
+  '/stats': typeof AuthenticatedStatsRoute
+  '/': typeof AuthenticatedIndexRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/crew': typeof CrewRoute
-  '/plan': typeof PlanRoute
-  '/stats': typeof StatsRoute
+  '/_authenticated/crew': typeof AuthenticatedCrewRoute
+  '/_authenticated/plan': typeof AuthenticatedPlanRoute
+  '/_authenticated/stats': typeof AuthenticatedStatsRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
+  fullPaths: '/crew' | '/plan' | '/stats' | '/' | '/activity/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
+  to: '/crew' | '/plan' | '/stats' | '/' | '/activity/$id'
   id:
     | '__root__'
-    | '/'
-    | '/crew'
-    | '/plan'
-    | '/stats'
+    | '/_authenticated/crew'
+    | '/_authenticated/plan'
+    | '/_authenticated/stats'
+    | '/_authenticated/'
     | '/_authenticated/activity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  CrewRoute: typeof CrewRoute
-  PlanRoute: typeof PlanRoute
-  StatsRoute: typeof StatsRoute
+  AuthenticatedCrewRoute: typeof AuthenticatedCrewRoute
+  AuthenticatedPlanRoute: typeof AuthenticatedPlanRoute
+  AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedActivityIdRoute: typeof AuthenticatedActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/stats': {
-      id: '/stats'
-      path: '/stats'
-      fullPath: '/stats'
-      preLoaderRoute: typeof StatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/plan': {
-      id: '/plan'
-      path: '/plan'
-      fullPath: '/plan'
-      preLoaderRoute: typeof PlanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/crew': {
-      id: '/crew'
-      path: '/crew'
-      fullPath: '/crew'
-      preLoaderRoute: typeof CrewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/stats': {
+      id: '/_authenticated/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof AuthenticatedStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/plan': {
+      id: '/_authenticated/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof AuthenticatedPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/crew': {
+      id: '/_authenticated/crew'
+      path: '/crew'
+      fullPath: '/crew'
+      preLoaderRoute: typeof AuthenticatedCrewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/activity/$id': {
@@ -126,10 +126,10 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  CrewRoute: CrewRoute,
-  PlanRoute: PlanRoute,
-  StatsRoute: StatsRoute,
+  AuthenticatedCrewRoute: AuthenticatedCrewRoute,
+  AuthenticatedPlanRoute: AuthenticatedPlanRoute,
+  AuthenticatedStatsRoute: AuthenticatedStatsRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedActivityIdRoute: AuthenticatedActivityIdRoute,
 }
 export const routeTree = rootRouteImport

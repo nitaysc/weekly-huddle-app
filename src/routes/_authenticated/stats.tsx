@@ -3,7 +3,7 @@ import { Trophy, Flame, Target, TrendingUp } from "lucide-react";
 import { FRIENDS, SPORTS } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
 
-export const Route = createFileRoute("/stats")({
+export const Route = createFileRoute("/_authenticated/stats")({
   head: () => ({
     meta: [
       { title: "Stats — Strike & Flow" },

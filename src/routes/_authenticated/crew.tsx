@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FRIENDS } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
 
-export const Route = createFileRoute("/crew")({
+export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
     meta: [
       { title: "Crew — Strike & Flow" },

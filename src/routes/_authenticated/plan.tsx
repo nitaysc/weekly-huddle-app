@@ -7,7 +7,7 @@ import {
 } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
 
-export const Route = createFileRoute("/plan")({
+export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
     meta: [
       { title: "Plan — Strike & Flow" },
