@@ -135,6 +135,7 @@ function CrewPage() {
         <p className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest mt-2 px-2">
           Share this code so friends can join your crew
         </p>
+        <NotificationCTA />
       </section>
 
       <section className="mb-6 animate-in">
