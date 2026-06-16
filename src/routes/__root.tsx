@@ -66,10 +66,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#0d0f14" },
       { title: "Strike & Flow — Weekly Crew Planner" },
       { name: "description", content: "Rotating weekly sports schedule for your crew: boxing, calisthenics, basketball and volleyball." },
-      { property: "og:title", content: "Strike & Flow" },
-      { property: "og:description", content: "Plan and play with your crew, week after week." },
+      { property: "og:title", content: "Strike & Flow — Weekly Crew Planner" },
+      { property: "og:description", content: "Rotating weekly sports schedule for your crew: boxing, calisthenics, basketball and volleyball." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Strike & Flow — Weekly Crew Planner" },
+      { name: "twitter:description", content: "Rotating weekly sports schedule for your crew: boxing, calisthenics, basketball and volleyball." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/af262cb6-1c7e-4d2d-be77-3c46526fd556/id-preview-468d114c--0c21fc33-4089-4e57-8a73-9c59a404077e.lovable.app-1781642089992.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/af262cb6-1c7e-4d2d-be77-3c46526fd556/id-preview-468d114c--0c21fc33-4089-4e57-8a73-9c59a404077e.lovable.app-1781642089992.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -106,21 +110,15 @@ function RootComponent() {
 
   useEffect(() => {
     let mounted = true;
-    import("@/lib/onesignal").then(({ initOneSignal, identifyOneSignalUser }) => {
-      initOneSignal();
-      import("@/integrations/supabase/client").then(({ supabase }) => {
-        supabase.auth.getUser().then(({ data }) => {
-          if (data.user) identifyOneSignalUser(data.user.id);
-        });
-        const { data } = supabase.auth.onAuthStateChange((event, session) => {
-          if (!mounted) return;
-          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-          if (event === "SIGNED_IN" && session?.user) identifyOneSignalUser(session.user.id);
-          router.invalidate();
-          if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-        });
-        (window as any).__sfAuthSub = data.subscription;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (!mounted) return;
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        router.invalidate();
+        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
       });
+      // store handle on window so HMR cleanup works
+      (window as any).__sfAuthSub = data.subscription;
     });
     return () => {
       mounted = false;
