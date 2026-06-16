@@ -12,8 +12,17 @@ interface SendArgs {
   collapseId?: string;
 }
 
+function normalizeRestApiKey(value: string) {
+  return value
+    .trim()
+    .replace(/^Authorization:\s*/i, "")
+    .replace(/^Key\s+/i, "")
+    .trim();
+}
+
 export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolean; status: number; body: string }> {
-  const key = process.env.ONESIGNAL_REST_API_KEY;
+  const rawKey = process.env.ONESIGNAL_REST_API_KEY;
+  const key = rawKey ? normalizeRestApiKey(rawKey) : "";
   if (!key) throw new Error("ONESIGNAL_REST_API_KEY missing");
   if (args.externalUserIds.length === 0) return { ok: true, status: 0, body: "no-targets" };
 
@@ -47,6 +56,6 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     body: JSON.stringify(payload),
   });
   const body = await res.text();
-  if (!res.ok) console.error("[OneSignal] send failed", res.status, body);
+  if (!res.ok) console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
   return { ok: res.ok, status: res.status, body };
 }
