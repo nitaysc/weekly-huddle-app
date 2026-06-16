@@ -492,7 +492,12 @@ function EditDaySheet({
             </button>
           ) : (
             <button
-              onClick={() => onSave(sport, form)}
+              onClick={() => onSave(sport, {
+                ...form,
+                equipment: parseList(equipmentText),
+                warmup: parseList(warmupText),
+                workout: parseWorkout(workoutText),
+              })}
               disabled={busy}
               className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
             >
