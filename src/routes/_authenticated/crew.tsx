@@ -64,27 +64,58 @@ function CrewPage() {
     };
   }, [activeCrew?.id, qc]);
 
-  // Chat presence — tell the server we're viewing the chat so push is suppressed
+  // Chat presence — only suppress push while the chat is actually in the foreground.
+  // When the tab/app is hidden or backgrounded, clear presence so push fires.
   useEffect(() => {
     if (!activeCrew?.id || !profile.data?.id) return;
-    const ping = async () => {
-      const until = new Date(Date.now() + 45_000).toISOString();
+    const crewId = activeCrew.id;
+    const userId = profile.data.id;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const setPresence = async (active: boolean) => {
+      const until = active
+        ? new Date(Date.now() + 45_000).toISOString()
+        : new Date(0).toISOString();
       await supabase
         .from("crew_members")
         .update({ chat_open_until: until })
-        .eq("crew_id", activeCrew.id)
-        .eq("user_id", profile.data!.id);
+        .eq("crew_id", crewId)
+        .eq("user_id", userId);
     };
-    ping();
-    const t = setInterval(ping, 25_000);
+
+    const start = () => {
+      if (interval) return;
+      setPresence(true);
+      interval = setInterval(() => setPresence(true), 25_000);
+    };
+    const stop = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+      setPresence(false);
+    };
+
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      start();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", stop);
+    window.addEventListener("blur", stop);
+    window.addEventListener("focus", onVisibility);
+
     return () => {
-      clearInterval(t);
-      // Clear presence on leave
-      supabase
-        .from("crew_members")
-        .update({ chat_open_until: new Date(0).toISOString() })
-        .eq("crew_id", activeCrew.id)
-        .eq("user_id", profile.data!.id);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", stop);
+      window.removeEventListener("blur", stop);
+      window.removeEventListener("focus", onVisibility);
+      stop();
     };
   }, [activeCrew?.id, profile.data?.id]);
 
