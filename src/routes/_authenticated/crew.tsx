@@ -280,36 +280,6 @@ function MessageItem({
   );
 }
 
-function NotificationCTA() {
-  const [state, setState] = useState<"unknown" | "granted" | "denied" | "unsupported" | "default">("unknown");
-  useEffect(() => {
-    import("@/lib/onesignal").then(({ getPushPermission }) => {
-      const p = getPushPermission();
-      setState(p === "unsupported" ? "unsupported" : (p as any));
-    });
-  }, []);
-  if (state === "granted" || state === "unsupported") return null;
-  return (
-    <button
-      onClick={async () => {
-        const { requestPushPermission } = await import("@/lib/onesignal");
-        const ok = await requestPushPermission();
-        setState(ok ? "granted" : "denied");
-      }}
-      className="mt-3 w-full bg-primary/10 border border-primary/40 rounded-2xl p-3 text-left active:scale-[0.99] transition"
-    >
-      <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-0.5">
-        Push notifications
-      </p>
-      <p className="text-xs text-foreground">
-        {state === "denied"
-          ? "Notifications blocked — enable them in your browser settings to get chat & RSVP alerts."
-          : "Tap to turn on alerts for chat messages, RSVPs, and upcoming sessions."}
-      </p>
-    </button>
-  );
-}
-
 function ProfileEditor() {
   const profile = useMyProfile();
   const qc = useQueryClient();
