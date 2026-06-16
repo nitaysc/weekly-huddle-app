@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing } from "lucide-react";
+import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing, Megaphone } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
 import { uploadAvatar, updateMyProfile } from "@/lib/profile";
-import { sendTestPush } from "@/lib/push.functions";
+import { sendTestPush, sendCrewBroadcast } from "@/lib/push.functions";
 
 const ADMIN_EMAIL = "7nitay7@gmail.com";
 
@@ -169,6 +169,7 @@ function CrewPage() {
         </p>
         <ProfileEditor />
         <NotificationPrompt />
+        <BroadcastPanel crewId={activeCrew.id} isOwner={memberList.some((m) => m.user_id === myId && m.role === "owner")} />
         <PushTestButton />
       </section>
 
@@ -330,7 +331,14 @@ function PushTestButton() {
     setResult(null);
     try {
       const r = await send();
-      setResult(r.ok ? "Sent ✓ — check your device" : `Failed (${r.status})`);
+      if (r.ok) {
+        const note = r.invalidAliases
+          ? `Sent ✓ (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
+          : "Sent ✓ — check your device";
+        setResult(note);
+      } else {
+        setResult(`Failed (${r.status})`);
+      }
     } catch (e: any) {
       setResult(e?.message ?? "Error");
     } finally {
@@ -360,6 +368,106 @@ function PushTestButton() {
   );
 }
 
+
+
+function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const broadcast = useServerFn(sendCrewBroadcast);
+
+  if (!isOwner) return null;
+
+  const presets: Array<{ label: string; title: string; body: string }> = [
+    { label: "Be ready", title: "🔥 Get ready", body: "Next session is coming up — be ready!" },
+    { label: "RSVP now", title: "🗳️ RSVP time", body: "Are you in for the next meeting? Tap to set going / out." },
+    { label: "Heads up", title: "📣 Heads up", body: "Quick update from your crew owner — open the app." },
+  ];
+
+  const submit = async (t: string, b: string) => {
+    if (!t.trim() || !b.trim()) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await broadcast({ data: { crewId, title: t, body: b } });
+      if (r.ok) {
+        setResult(`Sent ✓ to ${r.targeted ?? 0} member${(r.targeted ?? 0) === 1 ? "" : "s"}`);
+        setTitle("");
+        setBody("");
+        setOpen(false);
+      } else {
+        setResult(`Failed (${r.status})`);
+      }
+    } catch (e: any) {
+      setResult(e?.message ?? "Error");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setResult(null), 4000);
+    }
+  };
+
+  return (
+    <div className="mt-3 bg-surface border border-border rounded-2xl p-3">
+      <div className="flex items-center gap-3">
+        <div className="size-9 rounded-full bg-primary/15 text-primary grid place-items-center shrink-0">
+          <Megaphone className="size-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Owner broadcast</p>
+          <p className="text-xs leading-tight">Push every member of the crew</p>
+          {result && <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">{result}</p>}
+        </div>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest active:scale-95 transition"
+        >
+          {open ? "Close" : "New"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => submit(p.title, p.body)}
+                disabled={busy}
+                className="px-2.5 py-1 rounded-full border border-border bg-background font-mono text-[10px] uppercase tracking-widest active:scale-95 transition disabled:opacity-50"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title (e.g. Be ready)"
+            maxLength={60}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+          />
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Message to the crew…"
+            maxLength={240}
+            rows={2}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
+          />
+          <button
+            onClick={() => submit(title, body)}
+            disabled={busy || !title.trim() || !body.trim()}
+            className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest active:scale-95 transition disabled:opacity-50"
+          >
+            {busy ? "Sending…" : "Send broadcast"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ProfileEditor() {
   const profile = useMyProfile();
