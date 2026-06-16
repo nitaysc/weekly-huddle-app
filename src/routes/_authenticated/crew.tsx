@@ -310,3 +310,104 @@ function NotificationCTA() {
     </button>
   );
 }
+
+function ProfileEditor() {
+  const profile = useMyProfile();
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+
+  useEffect(() => {
+    if (profile.data?.display_name && !editingName) {
+      setName(profile.data.display_name);
+    }
+  }, [profile.data?.display_name, editingName]);
+
+  const me = profile.data;
+  if (!me) return null;
+
+  const onPick = () => fileRef.current?.click();
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setBusy(true);
+    try {
+      const url = await uploadAvatar(f);
+      await updateMyProfile({ avatar_url: url });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["my-profile"] }),
+        qc.invalidateQueries({ queryKey: ["crew-members"] }),
+      ]);
+    } catch (err) {
+      console.error(err);
+      alert("Could not upload photo. Try a smaller image.");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const saveName = async () => {
+    if (!name.trim() || name.trim() === me.display_name) {
+      setEditingName(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateMyProfile({ display_name: name });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["my-profile"] }),
+        qc.invalidateQueries({ queryKey: ["crew-members"] }),
+      ]);
+      setEditingName(false);
+    } catch (err) {
+      console.error(err);
+      alert("Could not update name.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 bg-surface border border-border rounded-2xl p-4 flex items-center gap-3">
+      <button onClick={onPick} className="relative shrink-0 active:scale-95 transition" disabled={busy} aria-label="Change photo">
+        <Avatar
+          initials={me.initials}
+          color={me.avatar_color}
+          imageUrl={me.avatar_url}
+          size={56}
+          ring="border-surface"
+        />
+        <span className="absolute -bottom-1 -right-1 size-6 rounded-full bg-primary text-primary-foreground grid place-items-center border-2 border-surface">
+          {busy ? <Loader2 className="size-3 animate-spin" /> : <Camera className="size-3" />}
+        </span>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Your profile</p>
+        {editingName ? (
+          <div className="flex gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveName()}
+              autoFocus
+              className="flex-1 bg-background border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
+            />
+            <button onClick={saveName} disabled={busy} className="px-2 py-1 bg-primary text-primary-foreground rounded-lg text-xs font-mono uppercase disabled:opacity-50">
+              Save
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setEditingName(true)} className="text-left">
+            <p className="font-display text-lg uppercase leading-none truncate">{me.display_name}</p>
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name · photo</p>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
