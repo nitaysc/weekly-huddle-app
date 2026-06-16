@@ -221,6 +221,22 @@ export type Database = {
     Functions: {
       is_member_of: { Args: { _crew_id: string }; Returns: boolean }
       is_owner_of: { Args: { _crew_id: string }; Returns: boolean }
+      join_crew_by_code: {
+        Args: { _code: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          id: string
+          invite_code: string
+          name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crews"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
