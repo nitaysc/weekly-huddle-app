@@ -307,13 +307,20 @@ function HomePage() {
       <section className="px-6 mb-8 animate-in">
         <h3 className="font-display text-xl uppercase mb-3">Session brief</h3>
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">{sport.description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{next.description}</p>
           <div className="grid grid-cols-2 gap-3">
-            <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${sport.duration} min`} />
-            <Meta icon={<MapPin className="size-3.5" />} label="Location" value={sport.location} />
+            <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${next.duration} min`} />
+            <Meta icon={<MapPin className="size-3.5" />} label="Location" value={next.location} />
           </div>
+          {next.notes && (
+            <div className="mt-1 p-3 rounded-xl border border-primary/40 bg-primary/5">
+              <p className="font-mono text-[9px] uppercase text-primary tracking-widest mb-1">Note from owner</p>
+              <p className="text-xs text-foreground whitespace-pre-wrap">{next.notes}</p>
+            </div>
+          )}
         </div>
       </section>
+
 
       {/* Quote */}
       <section className="px-6 animate-in">
