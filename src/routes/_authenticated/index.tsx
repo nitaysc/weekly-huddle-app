@@ -82,8 +82,13 @@ function HomePage() {
 
   const attendance = attendanceQ.data ?? [];
   const myAttendance = attendance.find((a) => a.user_id === profile.data?.id);
-  const goingIds = new Set(attendance.filter((a) => a.status === "going").map((a) => a.user_id));
-  const goingMembers = (members.data ?? []).filter((m) => goingIds.has(m.user_id));
+  const statusMap = new Map(attendance.map((a) => [a.user_id, a.status]));
+  const allMembers = members.data ?? [];
+  const goingMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "going");
+  const maybeMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "maybe");
+  const outMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "out");
+  const goingIds = new Set(goingMembers.map((m) => m.user_id));
+  void goingIds;
 
   return (
     <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
