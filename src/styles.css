@@ -214,3 +214,8 @@
   &::-webkit-scrollbar { display: none; }
 }
 
+
+@utility page-transition {
+  animation: page-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity, filter;
+}
