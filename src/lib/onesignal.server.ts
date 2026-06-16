@@ -27,12 +27,22 @@ function absoluteUrl(url: string) {
   return SITE_ORIGIN + (url.startsWith("/") ? url : "/" + url);
 }
 
-export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolean; status: number; body: string; recipients?: number; invalidAliases?: number }> {
+export async function sendOneSignalToUsers(
+  args: SendArgs,
+): Promise<{
+  ok: boolean;
+  status: number;
+  body: string;
+  recipients?: number;
+  invalidAliases?: number;
+}> {
   const rawKey = process.env.ONESIGNAL_REST_API_KEY;
   const key = rawKey ? normalizeRestApiKey(rawKey) : "";
   if (!key) throw new Error("ONESIGNAL_REST_API_KEY missing");
   const externalUserIds = [...new Set(args.externalUserIds.filter(Boolean))];
-  if (externalUserIds.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+  if (externalUserIds.length === 0) {
+    return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+  }
 
   const launchUrl = args.url ? absoluteUrl(args.url) : undefined;
 
@@ -81,8 +91,11 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     // body wasn't JSON
   }
 
-  if (!res.ok) console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
-  else if (invalidAliases) console.warn("[OneSignal] some recipients had no subscription", { invalidAliases, recipients });
+  if (!res.ok) {
+    console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
+  } else if (invalidAliases) {
+    console.warn("[OneSignal] some recipients had no subscription", { invalidAliases, recipients });
+  }
 
   // Only treat HTTP failure as failure. invalid_aliases is a partial-delivery warning,
   // not a failure — other recipients still received the push.
