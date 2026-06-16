@@ -11,6 +11,7 @@ declare global {
 }
 
 const WEB_PUSH_HOST = "weekly-huddle-app.lovable.app";
+let lastIdentifiedUser: { userId: string; crewId?: string | null } | null = null;
 
 /** True when running inside the Median native wrapper. */
 function isMedianApp(): boolean {
@@ -18,6 +19,47 @@ function isMedianApp(): boolean {
   if (typeof window.median !== "undefined") return true;
   const ua = navigator.userAgent || "";
   return /median|gonative/i.test(ua);
+}
+
+function canUseWebPushHost(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname === WEB_PUSH_HOST || window.location.hostname === "localhost";
+}
+
+function runMedianOneSignal(action: (os: any) => void, label: string, retries = 20) {
+  const os = window.median?.onesignal;
+  if (os) {
+    try {
+      action(os);
+    } catch (err) {
+      console.warn(`[Median OneSignal] ${label} failed:`, err);
+    }
+    return;
+  }
+  if (retries <= 0) {
+    console.warn(`[Median OneSignal] ${label} skipped: bridge not ready`);
+    return;
+  }
+  window.setTimeout(() => runMedianOneSignal(action, label, retries - 1), 250);
+}
+
+function waitForMedianOneSignal(timeoutMs = 5000): Promise<any | null> {
+  const started = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const os = window.median?.onesignal;
+      if (os) {
+        resolve(os);
+        return;
+      }
+      if (Date.now() - started >= timeoutMs) {
+        resolve(null);
+        return;
+      }
+      window.setTimeout(check, 250);
+    };
+    check();
+  });
 }
 
 let injected = false;
@@ -34,7 +76,7 @@ export function initOneSignal() {
 
   // OneSignal web push is bound to the published domain configured in OneSignal.
   // Preview/editor domains throw "Can only be used on..." and prevent clean setup.
-  if (window.location.hostname !== WEB_PUSH_HOST && window.location.hostname !== "localhost") return;
+  if (!canUseWebPushHost()) return;
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
@@ -58,19 +100,19 @@ export function initOneSignal() {
 /** Tag the current user so server-side sends can target them. */
 export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   if (typeof window === "undefined") return;
+  lastIdentifiedUser = { userId, crewId };
 
   // Median native OneSignal plugin: login() sets the externalId used by server sends.
   if (isMedianApp()) {
-    try {
-      const m = window.median;
-      m?.onesignal?.login?.(userId);
-      if (crewId) m?.onesignal?.tags?.setTags?.({ tags: { crew_id: crewId } });
-    } catch (err) {
-      console.warn("[Median OneSignal] identify failed:", err);
-    }
+    runMedianOneSignal((os) => {
+      os?.login?.(userId);
+      os?.externalUserId?.set?.({ externalId: userId });
+      if (crewId) os?.tags?.setTags?.({ tags: { crew_id: crewId } });
+    }, "identify");
     return;
   }
 
+  if (!canUseWebPushHost()) return;
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
@@ -86,13 +128,13 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
 
 export function logoutOneSignalUser() {
   if (typeof window === "undefined") return;
+  lastIdentifiedUser = null;
 
   if (isMedianApp()) {
-    try {
-      window.median?.onesignal?.logout?.();
-    } catch (err) {
-      console.warn("[Median OneSignal] logout failed:", err);
-    }
+    runMedianOneSignal((os) => {
+      os?.logout?.();
+      os?.externalUserId?.remove?.();
+    }, "logout");
     return;
   }
 
@@ -109,9 +151,15 @@ export async function requestPushPermission() {
 
   if (isMedianApp()) {
     try {
-      const os = window.median?.onesignal;
+      const os = await waitForMedianOneSignal();
+      if (!os) return false;
       os?.userPrivacyConsent?.grant?.();
       os?.register?.();
+      if (lastIdentifiedUser) {
+        os?.login?.(lastIdentifiedUser.userId);
+        os?.externalUserId?.set?.({ externalId: lastIdentifiedUser.userId });
+        if (lastIdentifiedUser.crewId) os?.tags?.setTags?.({ tags: { crew_id: lastIdentifiedUser.crewId } });
+      }
       return true;
     } catch (err) {
       console.warn("[Median OneSignal] permission request failed:", err);
@@ -119,11 +167,16 @@ export async function requestPushPermission() {
     }
   }
 
+  if (!canUseWebPushHost()) return false;
   return await new Promise<boolean>((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
       try {
         const granted = await OneSignal.Notifications.requestPermission();
+        if (granted && lastIdentifiedUser) {
+          await OneSignal.login(lastIdentifiedUser.userId);
+          if (lastIdentifiedUser.crewId) await OneSignal.User.addTag("crew_id", lastIdentifiedUser.crewId);
+        }
         resolve(!!granted);
       } catch {
         resolve(false);
@@ -133,6 +186,8 @@ export async function requestPushPermission() {
 }
 
 export function getPushPermission(): NotificationPermission | "unsupported" {
-  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  if (typeof window === "undefined") return "unsupported";
+  if (isMedianApp()) return "default";
+  if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
 }

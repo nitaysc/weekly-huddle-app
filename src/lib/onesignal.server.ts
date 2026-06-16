@@ -56,6 +56,7 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     body: JSON.stringify(payload),
   });
   const body = await res.text();
-  if (!res.ok) console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
-  return { ok: res.ok, status: res.status, body };
+  const hasInvalidAliases = body.includes('"invalid_aliases"');
+  if (!res.ok || hasInvalidAliases) console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
+  return { ok: res.ok && !hasInvalidAliases, status: res.status, body };
 }
