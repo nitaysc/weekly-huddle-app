@@ -123,11 +123,11 @@ function AuthenticatedLayout() {
     const w = widthRef.current || 1;
     const threshold = Math.min(80, w * 0.18);
     if (dx <= -threshold && idx < TABS.length - 1) {
-      flyOut(1, () => navigate({ to: TABS[idx + 1] }));
+      flyOut(1, dx, () => navigate({ to: TABS[idx + 1] }));
     } else if (dx >= threshold && idx > 0) {
-      flyOut(-1, () => navigate({ to: TABS[idx - 1] }));
+      flyOut(-1, dx, () => navigate({ to: TABS[idx - 1] }));
     } else {
-      reset(true);
+      reset();
     }
   };
 
