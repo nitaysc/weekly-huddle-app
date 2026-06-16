@@ -136,7 +136,7 @@ function HomePage() {
           to="/activity/$id"
           params={{ id: next.sportId }}
           search={{ date: toDateKey(next.date) }}
-          className="hero-sheen block relative bg-surface rounded-3xl overflow-hidden border border-border transition-transform duration-200 active:scale-[0.98] animate-in"
+          className="hero-sheen block relative bg-surface rounded-3xl overflow-hidden border border-border transition-[transform,opacity,filter] duration-150 ease-out active:scale-[0.965] active:opacity-90 active:brightness-110 animate-in"
         >
           <img
             src={next.image}
