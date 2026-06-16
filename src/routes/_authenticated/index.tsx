@@ -15,7 +15,7 @@ import {
 import {
   ensureSession, fetchAttendance, setMyAttendance, toDateKey,
 } from "@/lib/sessions";
-import { supabase } from "@/integrations/supabase/client";
+// no direct supabase import needed here
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
