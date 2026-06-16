@@ -4,7 +4,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChevronRight, MapPin, Clock, Flame, LogOut } from "lucide-react";
 import {
   SPORTS, QUOTES,
-  nextSession, rotationFor, weekDates, sportFor,
+  rotationFor, weekDates,
   DAY_NAMES, MONTH_NAMES,
 } from "@/lib/data";
 import { Countdown } from "@/components/Countdown";
@@ -13,9 +13,10 @@ import {
   useActiveCrew, useCrewMembers, useMyProfile, useSignOut,
 } from "@/hooks/use-crew";
 import {
-  ensureSession, fetchAttendance, setMyAttendance, toDateKey,
+  ensureSession, fetchAttendance, fetchSessionsRange,
+  effectiveSessionFor, nextResolvedSession,
+  setMyAttendance, toDateKey,
 } from "@/lib/sessions";
-// no direct supabase import needed here
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -41,12 +42,23 @@ function HomePage() {
   }, [crewsLoading, crews.length, navigate]);
 
   const now = new Date();
-  const next = nextSession(now);
   const rotation = rotationFor(now);
   const week = weekDates(now);
   const quote = QUOTES[now.getDate() % QUOTES.length];
 
   const members = useCrewMembers(activeCrew?.id);
+
+  // Load overrides for the next ~3 weeks so the home card reflects owner edits.
+  const rangeStart = week[0];
+  const rangeEnd = new Date(now);
+  rangeEnd.setDate(now.getDate() + 21);
+  const sessionsRangeQ = useQuery({
+    queryKey: ["sessions-range", activeCrew?.id, toDateKey(rangeStart), toDateKey(rangeEnd)],
+    enabled: !!activeCrew,
+    queryFn: () => fetchSessionsRange(activeCrew!.id, rangeStart, rangeEnd),
+  });
+
+  const next = nextResolvedSession(now, sessionsRangeQ.data);
 
   // ensure today/next session exists for the crew and load attendance
   const sessionQ = useQuery({
@@ -77,7 +89,7 @@ function HomePage() {
     );
   }
 
-  const { date: sessionStart, sport } = next;
+  const sessionStart = next.start;
   const isToday = sessionStart.toDateString() === now.toDateString();
 
   const attendance = attendanceQ.data ?? [];
@@ -87,8 +99,7 @@ function HomePage() {
   const goingMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "going");
   const maybeMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "maybe");
   const outMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "out");
-  const goingIds = new Set(goingMembers.map((m) => m.user_id));
-  void goingIds;
+
 
   return (
     <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
