@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Check, Send, LogOut } from "lucide-react";
+import { Copy, Check, Send, LogOut, Camera, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
+import { uploadAvatar, updateMyProfile } from "@/lib/profile";
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
