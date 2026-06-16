@@ -37,7 +37,7 @@ export const SPORTS: Record<SportId, Sport> = {
     colorVar: "boxing",
     duration: 75,
     difficulty: "Hard",
-    location: "Iron House Gym",
+    location: "Gan Miriam",
     equipment: ["Hand wraps", "16oz gloves", "Mouthguard", "Water"],
     description:
       "Technical pad and bag rounds focused on the 1-2-3, defensive slips and lateral movement. Three-minute rounds with a one-minute rest.",
