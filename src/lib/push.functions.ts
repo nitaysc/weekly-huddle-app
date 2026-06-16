@@ -50,9 +50,9 @@ export const sendCrewBroadcast = createServerFn({ method: "POST" })
       .select("user_id")
       .eq("crew_id", data.crewId);
 
-    const targets = (members ?? [])
+    const targets = [...new Set((members ?? [])
       .map((m) => m.user_id as string)
-      .filter((id) => data.includeSelf || id !== userId);
+      .filter((id) => data.includeSelf || id !== userId))];
 
     if (targets.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0, targeted: 0 };
 
