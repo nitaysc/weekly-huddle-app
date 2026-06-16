@@ -17,6 +17,7 @@ export interface ProfileRow {
   display_name: string;
   initials: string;
   avatar_color: string;
+  avatar_url: string | null;
 }
 
 export interface CrewMemberRow {
