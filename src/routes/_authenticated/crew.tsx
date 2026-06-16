@@ -159,7 +159,7 @@ function CrewPage() {
   const msgs = messages.data ?? [];
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 stagger">
       <header className="px-6 pt-10 pb-5 flex items-end justify-between animate-in">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-1">
