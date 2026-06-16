@@ -81,7 +81,6 @@ function HomePage() {
   const isToday = sessionStart.toDateString() === now.toDateString();
 
   const attendance = attendanceQ.data ?? [];
-  const myUid = supabase.auth.getUser; // placeholder reference
   const myAttendance = attendance.find((a) => a.user_id === profile.data?.id);
   const goingIds = new Set(attendance.filter((a) => a.status === "going").map((a) => a.user_id));
   const goingMembers = (members.data ?? []).filter((m) => goingIds.has(m.user_id));
