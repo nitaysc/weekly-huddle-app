@@ -172,6 +172,7 @@ export type Database = {
           created_at: string
           crew_id: string
           id: string
+          is_override: boolean
           notes: string | null
           session_date: string
           sport_id: string
@@ -181,6 +182,7 @@ export type Database = {
           created_at?: string
           crew_id: string
           id?: string
+          is_override?: boolean
           notes?: string | null
           session_date: string
           sport_id: string
@@ -190,6 +192,7 @@ export type Database = {
           created_at?: string
           crew_id?: string
           id?: string
+          is_override?: boolean
           notes?: string | null
           session_date?: string
           sport_id?: string
@@ -211,6 +214,7 @@ export type Database = {
     }
     Functions: {
       is_member_of: { Args: { _crew_id: string }; Returns: boolean }
+      is_owner_of: { Args: { _crew_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
