@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Check, Send, LogOut, Camera, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
 import { uploadAvatar, updateMyProfile } from "@/lib/profile";
+import { sendTestPush } from "@/lib/push.functions";
+
+const ADMIN_EMAIL = "7nitay7@gmail.com";
+
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
@@ -138,7 +144,10 @@ function CrewPage() {
           Share this code so friends can join your crew
         </p>
         <ProfileEditor />
+        <NotificationPrompt />
+        <PushTestButton />
       </section>
+
 
       <section className="mb-6 animate-in">
         <div className="flex gap-4 overflow-x-auto px-6 pb-2 no-scrollbar">
@@ -279,6 +288,54 @@ function MessageItem({
     </div>
   );
 }
+
+function PushTestButton() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const send = useServerFn(sendTestPush);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+  }, []);
+
+  if (email?.toLowerCase() !== ADMIN_EMAIL) return null;
+
+  const onClick = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await send();
+      setResult(r.ok ? "Sent ✓ — check your device" : `Failed (${r.status})`);
+    } catch (e: any) {
+      setResult(e?.message ?? "Error");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setResult(null), 4000);
+    }
+  };
+
+  return (
+    <div className="mt-3 bg-surface border border-dashed border-border rounded-2xl p-3 flex items-center gap-3">
+      <div className="size-9 rounded-full bg-primary/15 text-primary grid place-items-center shrink-0">
+        <BellRing className="size-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Admin tools</p>
+        <p className="text-xs leading-tight">Send yourself a test push</p>
+        {result && <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">{result}</p>}
+      </div>
+      <button
+        onClick={onClick}
+        disabled={busy}
+        className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition"
+      >
+        {busy ? "Sending…" : "Test"}
+      </button>
+    </div>
+  );
+}
+
 
 function ProfileEditor() {
   const profile = useMyProfile();

@@ -115,13 +115,30 @@ function RootComponent() {
   useEffect(() => {
     let mounted = true;
     import("@/integrations/supabase/client").then(({ supabase }) => {
-      const { data } = supabase.auth.onAuthStateChange((event) => {
+      const identify = (uid: string) => {
+        const w = window as any;
+        w.OneSignalDeferred = w.OneSignalDeferred || [];
+        w.OneSignalDeferred.push(async (OneSignal: any) => {
+          try { await OneSignal.login(uid); } catch (e) { console.warn("[OneSignal] login", e); }
+        });
+      };
+      supabase.auth.getUser().then(({ data }) => {
+        if (mounted && data.user?.id) identify(data.user.id);
+      });
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
         if (!mounted) return;
         if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        if (event === "SIGNED_IN" && session?.user?.id) identify(session.user.id);
+        if (event === "SIGNED_OUT") {
+          const w = window as any;
+          w.OneSignalDeferred = w.OneSignalDeferred || [];
+          w.OneSignalDeferred.push(async (OneSignal: any) => {
+            try { await OneSignal.logout(); } catch {}
+          });
+        }
         router.invalidate();
         if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
       });
-      // store handle on window so HMR cleanup works
       (window as any).__sfAuthSub = data.subscription;
     });
     return () => {
@@ -129,6 +146,7 @@ function RootComponent() {
       (window as any).__sfAuthSub?.unsubscribe?.();
     };
   }, [router, queryClient]);
+
 
   return (
     <QueryClientProvider client={queryClient}>
