@@ -1,12 +1,21 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, MapPin, Clock, Flame } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { ChevronRight, MapPin, Clock, Flame, LogOut } from "lucide-react";
 import {
-  SPORTS, FRIENDS, QUOTES,
-  nextSession, rotationFor, weekDates, sportFor, sessionTime,
+  SPORTS, QUOTES,
+  nextSession, rotationFor, weekDates, sportFor,
   DAY_NAMES, MONTH_NAMES,
 } from "@/lib/data";
 import { Countdown } from "@/components/Countdown";
 import { Avatar } from "@/components/Avatar";
+import {
+  useActiveCrew, useCrewMembers, useMyProfile, useSignOut,
+} from "@/hooks/use-crew";
+import {
+  ensureSession, fetchAttendance, setMyAttendance, toDateKey,
+} from "@/lib/sessions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -19,32 +28,91 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function HomePage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { activeCrew, crews, isLoading: crewsLoading } = useActiveCrew();
+  const profile = useMyProfile();
+  const signOut = useSignOut();
+
+  useEffect(() => {
+    if (!crewsLoading && crews.length === 0) {
+      navigate({ to: "/onboarding" });
+    }
+  }, [crewsLoading, crews.length, navigate]);
+
   const now = new Date();
   const next = nextSession(now);
   const rotation = rotationFor(now);
   const week = weekDates(now);
-  const goingFriends = FRIENDS.filter((f) => f.status === "going");
   const quote = QUOTES[now.getDate() % QUOTES.length];
 
-  if (!next) return null;
+  const members = useCrewMembers(activeCrew?.id);
+
+  // ensure today/next session exists for the crew and load attendance
+  const sessionQ = useQuery({
+    queryKey: ["session-for", activeCrew?.id, next ? toDateKey(next.date) : null],
+    enabled: !!activeCrew && !!next,
+    queryFn: () => ensureSession(activeCrew!.id, next!.date),
+  });
+
+  const attendanceQ = useQuery({
+    queryKey: ["attendance", sessionQ.data?.id],
+    enabled: !!sessionQ.data?.id,
+    queryFn: () => fetchAttendance(sessionQ.data!.id),
+  });
+
+  const rsvp = useMutation({
+    mutationFn: async (status: "going" | "maybe" | "out") => {
+      if (!sessionQ.data) return;
+      await setMyAttendance(sessionQ.data.id, status);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", sessionQ.data?.id] }),
+  });
+
+  if (!next || !activeCrew) {
+    return (
+      <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">
+        Loading…
+      </div>
+    );
+  }
+
   const { date: sessionStart, sport } = next;
   const isToday = sessionStart.toDateString() === now.toDateString();
+
+  const attendance = attendanceQ.data ?? [];
+  const myUid = supabase.auth.getUser; // placeholder reference
+  const myAttendance = attendance.find((a) => a.user_id === profile.data?.id);
+  const goingIds = new Set(attendance.filter((a) => a.status === "going").map((a) => a.user_id));
+  const goingMembers = (members.data ?? []).filter((m) => goingIds.has(m.user_id));
 
   return (
     <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
       {/* Header */}
       <header className="px-6 pt-10 pb-5 flex justify-between items-end animate-in">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-1">
-            Rotation • Week {rotation}
+          <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-1 truncate">
+            {activeCrew.name} • Week {rotation}
           </p>
           <h1 className="font-display text-4xl uppercase tracking-tight leading-none">
             Strike &amp; Flow
           </h1>
         </div>
-        <Link to="/crew" className="size-10 shrink-0 rounded-full border border-border bg-surface grid place-items-center font-mono text-xs text-primary">
-          YO
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={signOut}
+            className="size-10 rounded-full border border-border bg-surface grid place-items-center text-muted-foreground active:scale-95 transition"
+            title="Sign out"
+          >
+            <LogOut className="size-4" />
+          </button>
+          <Link
+            to="/crew"
+            className="size-10 rounded-full border border-border bg-surface grid place-items-center font-mono text-xs text-primary"
+          >
+            {profile.data?.initials ?? "··"}
+          </Link>
+        </div>
       </header>
 
       {/* Hero session card */}
@@ -91,18 +159,54 @@ function HomePage() {
             <div className="flex items-center justify-between pt-4 border-t border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2">
-                  {goingFriends.slice(0, 4).map((f) => (
-                    <Avatar key={f.id} friend={f} ring="border-background" />
+                  {goingMembers.slice(0, 4).map((m) => (
+                    <Avatar
+                      key={m.user_id}
+                      initials={m.profile?.initials ?? "··"}
+                      color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                      ring="border-background"
+                    />
                   ))}
+                  {goingMembers.length === 0 && (
+                    <span className="font-mono text-[10px] text-muted-foreground uppercase">
+                      No RSVPs yet
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <span className="text-foreground font-semibold">{goingFriends.length}</span> going
+                  <span className="text-foreground font-semibold">{goingMembers.length}</span> going
                 </p>
               </div>
               <ChevronRight className="size-5 text-primary" />
             </div>
           </div>
         </Link>
+      </section>
+
+      {/* RSVP shortcut */}
+      <section className="px-6 mb-8 animate-in">
+        <p className="font-mono text-[10px] uppercase text-muted-foreground mb-2">Your RSVP</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(["going", "maybe", "out"] as const).map((s) => {
+            const active = myAttendance?.status === s;
+            const color =
+              s === "going" ? "going" : s === "maybe" ? "maybe" : "out";
+            return (
+              <button
+                key={s}
+                onClick={() => rsvp.mutate(s)}
+                disabled={rsvp.isPending || !sessionQ.data}
+                className={`py-3 rounded-xl border font-mono text-[11px] uppercase font-bold tracking-wider transition disabled:opacity-50 ${
+                  active
+                    ? `bg-${color}/15 border-${color} text-${color}`
+                    : "border-border text-muted-foreground bg-surface"
+                }`}
+              >
+                {s === "going" ? "I'm in" : s === "maybe" ? "Maybe" : "Can't"}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* Week strip */}
@@ -152,46 +256,23 @@ function HomePage() {
         <div className="bg-surface rounded-2xl p-5 border border-border">
           <div className="grid grid-cols-2 gap-4">
             <div className="border-r border-border pr-4">
-              <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">Your Streak</p>
+              <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">Crew size</p>
               <p className="font-display text-3xl flex items-center gap-1.5">
-                12
+                {members.data?.length ?? "—"}
                 <Flame className="size-5 text-primary" />
               </p>
             </div>
             <div className="pl-1">
               <p className="font-mono text-[10px] text-muted-foreground uppercase mb-1">
-                {MONTH_NAMES[now.getMonth()]} target
+                {MONTH_NAMES[now.getMonth()]} RSVPs
               </p>
-              <div className="h-2 bg-background rounded-full mt-3 overflow-hidden">
-                <div className="h-full bg-primary" style={{ width: "65%" }} />
-              </div>
-              <p className="text-[10px] font-mono mt-1 text-right text-muted-foreground">14 / 22</p>
+              <p className="font-display text-3xl mt-2">{attendance.filter(a => a.status === "going").length}</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Who's coming */}
-      <section className="px-6 mb-8 animate-in">
-        <div className="flex justify-between items-baseline mb-3">
-          <h3 className="font-display text-xl uppercase">Who's coming</h3>
-          <Link to="/crew" className="font-mono text-[10px] text-primary uppercase">All crew →</Link>
-        </div>
-        <div className="bg-surface rounded-2xl border border-border divide-y divide-border">
-          {FRIENDS.slice(0, 4).map((f) => (
-            <div key={f.id} className="flex items-center gap-3 p-3">
-              <Avatar friend={f} ring="border-surface" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate">{f.name}</p>
-                <p className="text-[11px] text-muted-foreground">{f.streak} day streak</p>
-              </div>
-              <StatusPill status={f.status} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Activity preview */}
+      {/* Session brief */}
       <section className="px-6 mb-8 animate-in">
         <h3 className="font-display text-xl uppercase mb-3">Session brief</h3>
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-4">
@@ -211,21 +292,6 @@ function HomePage() {
         </div>
       </section>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: "going" | "maybe" | "out" | "unknown" }) {
-  const map = {
-    going: { label: "Going", color: "text-going border-going/40 bg-going/10" },
-    maybe: { label: "Maybe", color: "text-maybe border-maybe/40 bg-maybe/10" },
-    out: { label: "Out", color: "text-out border-out/40 bg-out/10" },
-    unknown: { label: "—", color: "text-muted-foreground border-border bg-transparent" },
-  } as const;
-  const { label, color } = map[status];
-  return (
-    <span className={`font-mono text-[10px] uppercase font-bold px-2 py-1 rounded border ${color}`}>
-      {label}
-    </span>
   );
 }
 
