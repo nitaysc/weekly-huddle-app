@@ -48,9 +48,10 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
   if (launchUrl) {
-    // OneSignal rejects `url` when app_url/web_url are present. Use the explicit fields for native + web deep links.
-    payload.web_url = launchUrl;
-    payload.app_url = launchUrl;
+    // Use the single cross-platform `url` field. In native wrappers (Median), this opens
+    // inside the app's webview instead of the system browser. `app_url` would force-open
+    // the OS browser, which is what we want to avoid.
+    payload.url = launchUrl;
   }
   if (args.data) payload.data = args.data;
   if (args.collapseId) {
