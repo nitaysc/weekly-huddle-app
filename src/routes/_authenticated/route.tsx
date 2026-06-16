@@ -1,5 +1,5 @@
-import { createFileRoute, Outlet, redirect, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, useRef } from "react";
+import { createFileRoute, Outlet, redirect, useRouterState, useNavigate, useRouter } from "@tanstack/react-router";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TABS = ["/", "/plan", "/crew", "/stats"] as const;
@@ -26,6 +26,7 @@ function computeDirection(prevPath: string, nextPath: string): 1 | -1 | 0 {
 function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const router = useRouter();
   const idx = tabIndex(pathname);
 
   // Direction computed synchronously so the very first render of the new key has the right anim class
@@ -35,15 +36,16 @@ function AuthenticatedLayout() {
     prevPathRef.current = pathname;
   }, [pathname]);
 
-
-
-  // Live drag state
+  // Refs
   const pageRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const dragging = useRef(false);
   const locked = useRef<"x" | "y" | null>(null);
   const widthRef = useRef(0);
+  // If set, the overlay snapshot will start at this dx (so swipe hand-off is seamless)
+  const handoffDxRef = useRef<number | null>(null);
 
   const setTransform = (dx: number) => {
     const el = pageRef.current;
@@ -57,7 +59,6 @@ function AuthenticatedLayout() {
     if (!el) return;
     el.style.transition = "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)";
     el.style.transform = "translate3d(0, 0, 0)";
-    // Clear after animation to let class-based anims own things again
     window.setTimeout(() => {
       if (!pageRef.current) return;
       pageRef.current.style.transition = "";
@@ -65,18 +66,63 @@ function AuthenticatedLayout() {
     }, 340);
   };
 
-  const flyOut = (dir: 1 | -1, fromDx: number, onDone: () => void) => {
-    const el = pageRef.current;
-    if (!el) return onDone();
-    const w = widthRef.current || el.offsetWidth || window.innerWidth;
-    // Continue from current finger position to fully off-screen
-    el.style.transition = "transform 260ms cubic-bezier(0.32, 0.72, 0, 1)";
-    el.style.transform = `translate3d(${-dir * w}px, 0, 0)`;
-    void el.offsetWidth; // force flush
-    // Fire navigation slightly before fly-out completes so incoming page slide overlaps the tail
-    window.setTimeout(onDone, 180);
+  // Snapshot the currently-rendered page and animate it off-screen as an overlay,
+  // so the incoming page can mount underneath without any flash.
+  const snapshotAndFly = (dir: 1 | -1) => {
+    const page = pageRef.current;
+    const overlay = overlayRef.current;
+    if (!page || !overlay) return;
+
+    const clone = page.cloneNode(true) as HTMLElement;
+    // Strip any running animations from the clone
+    clone.className = "";
+    clone.style.position = "absolute";
+    clone.style.top = "0";
+    clone.style.left = "0";
+    clone.style.right = "0";
+    clone.style.minHeight = "100%";
+    clone.style.pointerEvents = "none";
+    clone.style.zIndex = "10";
+    clone.style.willChange = "transform, opacity, filter";
+    clone.style.backgroundColor = "var(--color-background)";
+    clone.style.transformOrigin = "center center";
+
+    const startDx = handoffDxRef.current;
+    handoffDxRef.current = null;
+    clone.style.transition = "none";
+    clone.style.transform = startDx != null
+      ? `translate3d(${startDx}px, 0, 0)`
+      : "translate3d(0, 0, 0)";
+    clone.style.opacity = "1";
+    clone.style.filter = "blur(0)";
+
+    overlay.appendChild(clone);
+    // Force layout flush, then animate out
+    void clone.offsetWidth;
+    clone.style.transition =
+      "transform 440ms cubic-bezier(0.22, 1, 0.36, 1), opacity 360ms ease-out, filter 360ms ease-out";
+    const offset = dir === 1 ? "-22%" : "22%";
+    clone.style.transform = `translate3d(${offset}, 0, 0) scale(0.96)`;
+    clone.style.opacity = "0";
+    clone.style.filter = "blur(8px)";
+
+    window.setTimeout(() => {
+      clone.remove();
+    }, 480);
   };
 
+  // Subscribe to router navigation so EVERY transition (tap or swipe) gets the snapshot overlay
+  useEffect(() => {
+    const unsub = router.subscribe("onBeforeNavigate", ({ fromLocation, toLocation }) => {
+      if (!fromLocation || !toLocation) return;
+      if (fromLocation.pathname === toLocation.pathname) return;
+      const dir = computeDirection(fromLocation.pathname, toLocation.pathname);
+      if (dir === 0) return;
+      // Snapshot the current DOM BEFORE React swaps to the new route content
+      snapshotAndFly(dir);
+    });
+    return unsub;
+  }, [router]);
 
   const hasHorizontalScrollAncestor = (target: EventTarget | null): boolean => {
     let node = target as HTMLElement | null;
@@ -112,12 +158,10 @@ function AuthenticatedLayout() {
     const dy = t.clientY - startY.current;
     if (!locked.current) {
       if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
-      // Require clearly horizontal motion before claiming the gesture
       locked.current = Math.abs(dx) > Math.abs(dy) * 1.8 ? "x" : "y";
     }
     if (locked.current !== "x") return;
     dragging.current = true;
-    // Resistance at edges where no neighbor exists
     let eff = dx;
     if ((dx > 0 && idx === 0) || (dx < 0 && idx === TABS.length - 1)) {
       eff = dx * 0.25;
@@ -125,9 +169,7 @@ function AuthenticatedLayout() {
     setTransform(eff);
   };
   const onTouchEnd = (e: React.TouchEvent) => {
-    if (startX.current == null) {
-      return;
-    }
+    if (startX.current == null) return;
     const t = e.changedTouches[0];
     const dx = (t?.clientX ?? startX.current) - startX.current;
     const wasDragging = dragging.current;
@@ -142,21 +184,33 @@ function AuthenticatedLayout() {
     const w = widthRef.current || 1;
     const threshold = Math.min(80, w * 0.18);
     if (dx <= -threshold && idx < TABS.length - 1) {
-      flyOut(1, dx, () => navigate({ to: TABS[idx + 1] }));
+      // Reset live transform, hand off current dx to the snapshot overlay
+      handoffDxRef.current = dx;
+      if (pageRef.current) {
+        pageRef.current.style.transition = "none";
+        pageRef.current.style.transform = "";
+      }
+      navigate({ to: TABS[idx + 1] });
     } else if (dx >= threshold && idx > 0) {
-      flyOut(-1, dx, () => navigate({ to: TABS[idx - 1] }));
+      handoffDxRef.current = dx;
+      if (pageRef.current) {
+        pageRef.current.style.transition = "none";
+        pageRef.current.style.transform = "";
+      }
+      navigate({ to: TABS[idx - 1] });
     } else {
       reset();
     }
   };
 
-  // Clear inline styles whenever the route actually changes so the entrance animation can play
+  // Clear inline styles whenever the route changes so the entrance animation can play cleanly
   useLayoutEffect(() => {
     const el = pageRef.current;
     if (!el) return;
     el.style.transition = "none";
     el.style.transform = "";
     el.style.opacity = "";
+    el.style.filter = "";
   }, [pathname]);
 
   const animClass =
@@ -168,7 +222,7 @@ function AuthenticatedLayout() {
 
   return (
     <div
-      className="min-h-dvh overflow-x-hidden bg-background"
+      className="min-h-dvh overflow-x-hidden bg-background relative"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -180,9 +234,22 @@ function AuthenticatedLayout() {
         dragging.current = false;
       }}
     >
-      <div key={pathname} ref={pageRef} className={animClass} style={{ willChange: "transform, opacity" }}>
+      {/* Live page */}
+      <div
+        key={pathname}
+        ref={pageRef}
+        className={animClass}
+        style={{ willChange: "transform, opacity, filter", backgroundColor: "var(--color-background)" }}
+      >
         <Outlet />
       </div>
+      {/* Overlay layer for outgoing page snapshots */}
+      <div
+        ref={overlayRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        style={{ zIndex: 10 }}
+      />
     </div>
   );
 }
