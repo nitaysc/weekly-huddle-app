@@ -103,16 +103,17 @@ function StatsPage() {
   ).length;
 
   // Streak: consecutive past sessions attended
-  const sortedPast = [...attendance]
-    .filter((a) => a.sessions && new Date(a.sessions.session_date) <= new Date())
-    .sort(
-      (a, b) =>
-        new Date(b.sessions!.session_date).getTime() -
-        new Date(a.sessions!.session_date).getTime(),
-    );
+  const pastSessionDates = [...new Set(
+    attendance
+      .filter((a) => a.sessions && new Date(a.sessions.session_date) <= new Date())
+      .map((a) => a.sessions!.session_date),
+  )].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   let streak = 0;
-  for (const a of sortedPast) {
-    if (a.user_id === myId) streak++;
+  for (const date of pastSessionDates) {
+    const attended = attendance.some(
+      (a) => a.user_id === myId && a.sessions?.session_date === date && a.status === "going",
+    );
+    if (attended) streak++;
     else break;
   }
 
