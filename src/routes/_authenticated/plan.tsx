@@ -69,7 +69,7 @@ function PlanPage() {
   const monthLabel = `${MONTH_NAMES[days[0].getMonth()]} ${days[0].getDate()} – ${MONTH_NAMES[days[6].getMonth()]} ${days[6].getDate()}`;
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 stagger">
       <header className="px-6 pt-10 pb-5 animate-in">
         <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-1">
           Rotation • Week {rotation}
