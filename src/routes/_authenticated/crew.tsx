@@ -169,6 +169,7 @@ function CrewPage() {
         </p>
         <ProfileEditor />
         <NotificationPrompt />
+        <BroadcastPanel crewId={activeCrew.id} isOwner={memberList.some((m) => m.user_id === myId && m.role === "owner")} />
         <PushTestButton />
       </section>
 
