@@ -104,14 +104,11 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
 
   // Median native OneSignal plugin: login() sets the externalId used by server sends.
   if (isMedianApp()) {
-    try {
-      const m = window.median;
-      m?.onesignal?.login?.(userId);
-      m?.onesignal?.externalUserId?.set?.({ externalId: userId });
-      if (crewId) m?.onesignal?.tags?.setTags?.({ tags: { crew_id: crewId } });
-    } catch (err) {
-      console.warn("[Median OneSignal] identify failed:", err);
-    }
+    runMedianOneSignal((os) => {
+      os?.login?.(userId);
+      os?.externalUserId?.set?.({ externalId: userId });
+      if (crewId) os?.tags?.setTags?.({ tags: { crew_id: crewId } });
+    }, "identify");
     return;
   }
 
@@ -134,12 +131,10 @@ export function logoutOneSignalUser() {
   lastIdentifiedUser = null;
 
   if (isMedianApp()) {
-    try {
-      window.median?.onesignal?.logout?.();
-      window.median?.onesignal?.externalUserId?.remove?.();
-    } catch (err) {
-      console.warn("[Median OneSignal] logout failed:", err);
-    }
+    runMedianOneSignal((os) => {
+      os?.logout?.();
+      os?.externalUserId?.remove?.();
+    }, "logout");
     return;
   }
 
