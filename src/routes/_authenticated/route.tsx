@@ -17,18 +17,29 @@ function AuthenticatedLayout() {
   const navigate = useNavigate();
   const idx = tabIndex(pathname);
 
-  // Track direction for entrance animation
+  // Track direction for entrance animation (tabs + push/pop into detail pages)
   const prevIdxRef = useRef(idx);
+  const prevPathRef = useRef(pathname);
   const [direction, setDirection] = useState<1 | -1 | 0>(0);
   useLayoutEffect(() => {
     const prev = prevIdxRef.current;
-    if (idx >= 0 && prev >= 0 && idx !== prev) {
+    const prevPath = prevPathRef.current;
+    const isDetail = (p: string) => p.startsWith("/activity");
+    if (isDetail(pathname) && !isDetail(prevPath)) {
+      // Push into a detail page
+      setDirection(1);
+    } else if (!isDetail(pathname) && isDetail(prevPath)) {
+      // Pop back from detail
+      setDirection(-1);
+    } else if (idx >= 0 && prev >= 0 && idx !== prev) {
       setDirection(idx > prev ? 1 : -1);
     } else {
       setDirection(0);
     }
     prevIdxRef.current = idx;
+    prevPathRef.current = pathname;
   }, [idx, pathname]);
+
 
   // Live drag state
   const pageRef = useRef<HTMLDivElement>(null);
