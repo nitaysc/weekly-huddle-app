@@ -3,6 +3,19 @@ import { sessionTime, sportFor, type SportId } from "@/lib/data";
 
 export type ScheduleSportId = SportId | "rest";
 
+export interface SessionOverrides {
+  name?: string;
+  tagline?: string;
+  location?: string;
+  duration?: number;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  equipment?: string[];
+  warmup?: string[];
+  workout?: Array<{ title: string; detail: string }>;
+  notes?: string;
+  startTime?: string; // "HH:MM"
+}
+
 export interface SessionRow {
   id: string;
   crew_id: string;
@@ -11,6 +24,7 @@ export interface SessionRow {
   starts_at: string;
   notes: string | null;
   is_override?: boolean;
+  overrides?: SessionOverrides;
 }
 
 export type AttendanceStatus = "going" | "maybe" | "out";
@@ -159,4 +173,36 @@ export function resolvedSportFor(
   }
   const def = sportFor(date);
   return { sportId: def ?? null, row: null };
+}
+
+/** Owner-only: write detailed overrides (name, equipment, workout, etc.) for a given date. */
+export async function setSessionOverrides(
+  crewId: string,
+  date: Date,
+  sportId: ScheduleSportId,
+  overrides: SessionOverrides,
+): Promise<SessionRow> {
+  const key = toDateKey(date);
+  const base = sessionTime(date);
+  if (overrides.startTime) {
+    const [hh, mm] = overrides.startTime.split(":").map((x) => parseInt(x, 10));
+    if (!isNaN(hh) && !isNaN(mm)) base.setHours(hh, mm, 0, 0);
+  }
+  const { data, error } = await supabase
+    .from("sessions")
+    .upsert(
+      {
+        crew_id: crewId,
+        session_date: key,
+        sport_id: sportId,
+        starts_at: base.toISOString(),
+        is_override: true,
+        overrides: overrides as any,
+      },
+      { onConflict: "crew_id,session_date" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SessionRow;
 }

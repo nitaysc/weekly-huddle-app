@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
 
 function ActivityPage() {
   const { id } = Route.useParams();
-  const sport = SPORTS[id as SportId];
+  const baseSport = SPORTS[id as SportId];
   const { activeCrew } = useActiveCrew();
   const profile = useMyProfile();
   const members = useCrewMembers(activeCrew?.id);
@@ -59,6 +59,21 @@ function ActivityPage() {
     enabled: !!activeCrew,
     queryFn: () => ensureSession(activeCrew!.id, target),
   });
+
+  // Merge per-session overrides on top of the default sport definition
+  const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & { startTime?: string };
+  const sport = {
+    ...baseSport,
+    ...(ov.name ? { name: ov.name } : {}),
+    ...(ov.tagline ? { tagline: ov.tagline } : {}),
+    ...(ov.location ? { location: ov.location } : {}),
+    ...(ov.duration ? { duration: ov.duration } : {}),
+    ...(ov.difficulty ? { difficulty: ov.difficulty } : {}),
+    ...(ov.equipment && (ov.equipment as string[]).length ? { equipment: ov.equipment } : {}),
+    ...(ov.warmup && (ov.warmup as string[]).length ? { warmup: ov.warmup } : {}),
+    ...(ov.workout && (ov.workout as Array<{title: string; detail: string}>).length ? { workout: ov.workout } : {}),
+  };
+  const overrideNotes = (sessionQ.data?.overrides as { notes?: string } | undefined)?.notes;
 
   const attendanceQ = useQuery({
     queryKey: ["attendance", sessionQ.data?.id],
@@ -121,6 +136,12 @@ function ActivityPage() {
 
       <section className="px-6 mb-6">
         <p className="text-sm leading-relaxed text-muted-foreground">{sport.description}</p>
+        {overrideNotes && (
+          <div className="mt-3 p-3 rounded-xl border border-primary/40 bg-primary/5">
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mb-1">Note from owner</p>
+            <p className="text-xs text-foreground whitespace-pre-wrap">{overrideNotes}</p>
+          </div>
+        )}
         {sport.outdoor && (
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Cloud className="size-3.5 text-primary" />
