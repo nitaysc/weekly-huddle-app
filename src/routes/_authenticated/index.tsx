@@ -249,8 +249,8 @@ function HomePage() {
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2 px-6 no-scrollbar">
           {week.map((d) => {
-            const sId = sportFor(d);
-            const s = sId ? SPORTS[sId] : null;
+            const eff = effectiveSessionFor(d, sessionsRangeQ.data);
+            const s = eff ? SPORTS[eff.sportId] : null;
             const isCurrent = d.toDateString() === now.toDateString();
             return (
               <div
@@ -279,6 +279,7 @@ function HomePage() {
             );
           })}
         </div>
+
       </section>
 
       {/* Quick stats */}
