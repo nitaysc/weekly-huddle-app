@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Copy, Check, Send, Smile, LogOut } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Copy, Check, Send, LogOut } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
@@ -14,19 +17,14 @@ export const Route = createFileRoute("/_authenticated/crew")({
   component: CrewPage,
 });
 
-interface ChatMsg {
-  id: string;
-  who: string;
-  text: string;
-  reactions: string[];
-  mine?: boolean;
-}
+const QUICK_EMOJI = ["🔥", "💪", "👀", "😂", "❤️"];
 
 function CrewPage() {
   const { activeCrew } = useActiveCrew();
   const members = useCrewMembers(activeCrew?.id);
   const profile = useMyProfile();
   const signOut = useSignOut();
+  const qc = useQueryClient();
 
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -36,27 +34,66 @@ function CrewPage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // Chat stays local for now (persistence coming in wave 2)
-  const [msgs, setMsgs] = useState<ChatMsg[]>([
-    { id: "1", who: "Demo", text: "Group chat will sync across the crew in the next update 👋", reactions: ["🔥"] },
-  ]);
+  const msgKey = ["messages", activeCrew?.id] as const;
+  const messages = useQuery({
+    queryKey: msgKey,
+    enabled: !!activeCrew?.id,
+    queryFn: () => fetchMessages(activeCrew!.id),
+  });
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!activeCrew?.id) return;
+    const channel = supabase
+      .channel(`messages:${activeCrew.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `crew_id=eq.${activeCrew.id}` },
+        () => qc.invalidateQueries({ queryKey: msgKey }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeCrew?.id, qc]);
+
   const [draft, setDraft] = useState("");
-  const send = () => {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight });
+  }, [messages.data?.length]);
+
+  const send = async () => {
     const t = draft.trim();
-    if (!t) return;
-    setMsgs((m) => [...m, {
-      id: String(Date.now()),
-      who: profile.data?.display_name ?? "You",
-      text: t, reactions: [], mine: true,
-    }]);
+    if (!t || !activeCrew) return;
     setDraft("");
+    try {
+      await sendMessage(activeCrew.id, t);
+    } catch (e) {
+      console.error(e);
+      setDraft(t);
+    }
   };
+
+  const myId = profile.data?.id;
+  const memberMap = useMemo(() => {
+    const map = new Map<string, { name: string; initials: string; color: string }>();
+    (members.data ?? []).forEach((m) => {
+      map.set(m.user_id, {
+        name: m.profile?.display_name ?? "Friend",
+        initials: m.profile?.initials ?? "··",
+        color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
+      });
+    });
+    return map;
+  }, [members.data]);
 
   if (!activeCrew) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading…</div>;
   }
 
   const memberList = members.data ?? [];
+  const msgs = messages.data ?? [];
 
   return (
     <div className="pb-28">
@@ -78,7 +115,6 @@ function CrewPage() {
         </button>
       </header>
 
-      {/* Invite code */}
       <section className="px-4 mb-6 animate-in">
         <button
           onClick={copy}
@@ -101,7 +137,6 @@ function CrewPage() {
         </p>
       </section>
 
-      {/* Members */}
       <section className="mb-6 animate-in">
         <div className="flex gap-4 overflow-x-auto px-6 pb-2 no-scrollbar">
           {memberList.map((m) => (
@@ -123,54 +158,33 @@ function CrewPage() {
         </div>
       </section>
 
-      {/* Chat (mock for now) */}
       <section className="px-4 animate-in">
         <div className="bg-surface rounded-2xl border border-border">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <p className="font-display text-base uppercase tracking-wide">Group chat</p>
-            <span className="font-mono text-[10px] text-muted-foreground uppercase">Preview</span>
+            <span className="font-mono text-[10px] text-going uppercase">● Live</span>
           </div>
 
-          <div className="p-3 space-y-3 max-h-[420px] overflow-y-auto">
+          <div ref={scrollerRef} className="p-3 space-y-3 max-h-[420px] overflow-y-auto">
+            {messages.isLoading && (
+              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading…</p>
+            )}
+            {!messages.isLoading && msgs.length === 0 && (
+              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">
+                No messages yet — say hi 👋
+              </p>
+            )}
             {msgs.map((m) => (
-              <div key={m.id} className={`flex gap-2 ${m.mine ? "flex-row-reverse" : ""}`}>
-                <div
-                  className="size-7 rounded-full grid place-items-center font-mono text-[9px] font-bold text-background"
-                  style={{ background: m.mine ? "hsl(45 90% 50%)" : "hsl(195 70% 55%)" }}
-                >
-                  {m.who.slice(0, 2).toUpperCase()}
-                </div>
-                <div className={`max-w-[70%] ${m.mine ? "items-end" : ""} flex flex-col gap-1`}>
-                  {!m.mine && (
-                    <span className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">{m.who}</span>
-                  )}
-                  <div
-                    className={`px-3 py-2 rounded-2xl text-sm ${
-                      m.mine
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-background border border-border rounded-bl-sm"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                  {m.reactions.length > 0 && (
-                    <div className="flex gap-1">
-                      {m.reactions.map((r, i) => (
-                        <span key={i} className="text-xs px-1.5 py-0.5 rounded-full bg-background border border-border">
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <MessageItem
+                key={m.id}
+                msg={m}
+                mine={m.author_id === myId}
+                author={memberMap.get(m.author_id)}
+              />
             ))}
           </div>
 
           <div className="p-3 border-t border-border flex items-center gap-2">
-            <button className="size-9 grid place-items-center text-muted-foreground">
-              <Smile className="size-5" />
-            </button>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -180,13 +194,85 @@ function CrewPage() {
             />
             <button
               onClick={send}
-              className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center active:scale-95 transition"
+              disabled={!draft.trim()}
+              className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center active:scale-95 transition disabled:opacity-40"
             >
               <Send className="size-4" />
             </button>
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function MessageItem({
+  msg,
+  mine,
+  author,
+}: {
+  msg: MessageRow;
+  mine: boolean;
+  author?: { name: string; initials: string; color: string };
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const reactionEntries = Object.entries(msg.reactions ?? {});
+
+  return (
+    <div className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+      <div
+        className="size-7 rounded-full grid place-items-center font-mono text-[9px] font-bold text-background shrink-0"
+        style={{ background: author?.color ?? "hsl(195 70% 55%)" }}
+      >
+        {author?.initials ?? "··"}
+      </div>
+      <div className={`max-w-[75%] flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}>
+        {!mine && (
+          <span className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">
+            {author?.name ?? "Friend"}
+          </span>
+        )}
+        <button
+          onClick={() => setPickerOpen((v) => !v)}
+          className={`px-3 py-2 rounded-2xl text-sm text-left ${
+            mine
+              ? "bg-primary text-primary-foreground rounded-br-sm"
+              : "bg-background border border-border rounded-bl-sm"
+          }`}
+        >
+          {msg.text}
+        </button>
+        {pickerOpen && (
+          <div className="flex gap-1 bg-background border border-border rounded-full px-2 py-1">
+            {QUICK_EMOJI.map((e) => (
+              <button
+                key={e}
+                onClick={() => {
+                  toggleReaction(msg, e).catch(console.error);
+                  setPickerOpen(false);
+                }}
+                className="text-base active:scale-110 transition"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
+        {reactionEntries.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {reactionEntries.map(([emoji, users]) => (
+              <button
+                key={emoji}
+                onClick={() => toggleReaction(msg, emoji).catch(console.error)}
+                className="text-xs px-1.5 py-0.5 rounded-full bg-background border border-border flex items-center gap-1"
+              >
+                <span>{emoji}</span>
+                <span className="font-mono text-[9px] text-muted-foreground">{users.length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
