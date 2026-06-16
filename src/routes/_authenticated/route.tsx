@@ -78,8 +78,26 @@ function AuthenticatedLayout() {
   };
 
 
+  const hasHorizontalScrollAncestor = (target: EventTarget | null): boolean => {
+    let node = target as HTMLElement | null;
+    while (node && node !== pageRef.current) {
+      if (node.dataset?.noSwipe != null) return true;
+      const style = window.getComputedStyle(node);
+      const ox = style.overflowX;
+      if ((ox === "auto" || ox === "scroll") && node.scrollWidth > node.clientWidth + 2) {
+        return true;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  };
+
   const onTouchStart = (e: React.TouchEvent) => {
     if (idx < 0) return;
+    if (hasHorizontalScrollAncestor(e.target)) {
+      startX.current = null;
+      return;
+    }
     const t = e.touches[0];
     startX.current = t.clientX;
     startY.current = t.clientY;
@@ -93,8 +111,9 @@ function AuthenticatedLayout() {
     const dx = t.clientX - startX.current;
     const dy = t.clientY - startY.current;
     if (!locked.current) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      locked.current = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y";
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      // Require clearly horizontal motion before claiming the gesture
+      locked.current = Math.abs(dx) > Math.abs(dy) * 1.8 ? "x" : "y";
     }
     if (locked.current !== "x") return;
     dragging.current = true;
