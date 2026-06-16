@@ -197,7 +197,7 @@ export async function setSessionOverrides(
         sport_id: sportId,
         starts_at: base.toISOString(),
         is_override: true,
-        overrides: overrides as unknown as Record<string, unknown>,
+        overrides: overrides as any,
       },
       { onConflict: "crew_id,session_date" },
     )
