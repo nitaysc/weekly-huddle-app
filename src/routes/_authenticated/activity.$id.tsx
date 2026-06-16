@@ -103,6 +103,13 @@ function ActivityPage() {
     new Set(attendance.filter((a) => a.status === s).map((a) => a.user_id));
   const going = byStatus("going");
 
+  // Effective session start: row.starts_at (already reflects override time) → fallback.
+  const sessionStart = sessionQ.data?.starts_at
+    ? new Date(sessionQ.data.starts_at)
+    : target;
+  const timeLabel = `${sessionStart.getHours().toString().padStart(2, "0")}:${sessionStart.getMinutes().toString().padStart(2, "0")}`;
+  const dayLabel = sessionStart.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
   return (
     <div className="pb-28">
       {/* Hero */}
@@ -121,6 +128,9 @@ function ActivityPage() {
         >
           <ArrowLeft className="size-4" />
         </Link>
+        <div className="absolute top-10 right-4 px-3 py-1.5 rounded-full bg-background/70 backdrop-blur border border-border font-mono text-[10px] uppercase tracking-widest">
+          {dayLabel} · {timeLabel}
+        </div>
         <div className="absolute bottom-0 inset-x-0 p-6">
           <span
             className="inline-block px-2 py-1 font-mono text-[10px] font-bold uppercase rounded mb-3"
@@ -135,12 +145,14 @@ function ActivityPage() {
       </div>
 
       <section className="px-4 -mt-2 mb-6">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
+          <Meta icon={<Clock className="size-3.5" />} label="Time" value={timeLabel} />
           <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${sport.duration}m`} />
           <Meta icon={<Flame className="size-3.5" />} label="Level" value={sport.difficulty} />
           <Meta icon={<MapPin className="size-3.5" />} label="Place" value={sport.location.split(",")[0]} />
         </div>
       </section>
+
 
       <section className="px-6 mb-6">
         <p className="text-sm leading-relaxed text-muted-foreground">{sport.description}</p>
