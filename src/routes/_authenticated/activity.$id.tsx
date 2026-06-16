@@ -6,7 +6,7 @@ import {
 import { SPORTS, FRIENDS, type SportId, type Friend } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
 
-export const Route = createFileRoute("/activity/$id")({
+export const Route = createFileRoute("/_authenticated/activity/$id")({
   head: ({ params }) => {
     const s = SPORTS[params.id as SportId];
     return {
