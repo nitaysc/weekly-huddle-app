@@ -10,8 +10,8 @@ import { Avatar } from "@/components/Avatar";
 import { useActiveCrew, useCrewMembers } from "@/hooks/use-crew";
 import {
   fetchSessionsRange, fetchAttendance, toDateKey,
-  setSchedule, clearSchedule, resolvedSportFor,
-  type ScheduleSportId,
+  setSchedule, clearSchedule, resolvedSportFor, setSessionOverrides,
+  type ScheduleSportId, type SessionOverrides, type SessionRow,
 } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_authenticated/plan")({
