@@ -64,12 +64,14 @@ export function initOneSignal() {
 /** Tag the current user so server-side sends can target them. */
 export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   if (typeof window === "undefined") return;
+  lastIdentifiedUser = { userId, crewId };
 
   // Median native OneSignal plugin: login() sets the externalId used by server sends.
   if (isMedianApp()) {
     try {
       const m = window.median;
       m?.onesignal?.login?.(userId);
+      m?.onesignal?.externalUserId?.set?.({ externalId: userId });
       if (crewId) m?.onesignal?.tags?.setTags?.({ tags: { crew_id: crewId } });
     } catch (err) {
       console.warn("[Median OneSignal] identify failed:", err);
@@ -80,6 +82,7 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
+      if (!canUseWebPushHost()) return;
       await OneSignal.login(userId);
       if (crewId) {
         await OneSignal.User.addTag("crew_id", crewId);
@@ -92,10 +95,12 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
 
 export function logoutOneSignalUser() {
   if (typeof window === "undefined") return;
+  lastIdentifiedUser = null;
 
   if (isMedianApp()) {
     try {
       window.median?.onesignal?.logout?.();
+      window.median?.onesignal?.externalUserId?.remove?.();
     } catch (err) {
       console.warn("[Median OneSignal] logout failed:", err);
     }
