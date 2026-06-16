@@ -264,6 +264,34 @@ function EditDaySheet({
     startTime: ov.startTime ?? "18:30",
   });
 
+  // Raw multi-line text buffers so users can press Enter to add new rows.
+  // We only parse these into arrays at save time.
+  const [equipmentText, setEquipmentText] = useState<string>(
+    (ov.equipment ?? base?.equipment ?? []).join("\n"),
+  );
+  const [warmupText, setWarmupText] = useState<string>(
+    (ov.warmup ?? base?.warmup ?? []).join("\n"),
+  );
+  const [workoutText, setWorkoutText] = useState<string>(
+    (ov.workout ?? base?.workout ?? [])
+      .map((w) => `${w.title} | ${w.detail}`)
+      .join("\n"),
+  );
+
+  const parseList = (text: string) =>
+    text.split("\n").map((s) => s.trim()).filter(Boolean);
+
+  const parseWorkout = (text: string) =>
+    text
+      .split("\n")
+      .map((line) => {
+        const [t, ...rest] = line.split("|");
+        const title = (t ?? "").trim();
+        const detail = rest.join("|").trim();
+        return title ? { title, detail } : null;
+      })
+      .filter(Boolean) as Array<{ title: string; detail: string }>;
+
   // When sport changes, refresh defaults from the new sport template
   const switchSport = (next: ScheduleSportId) => {
     setSport(next);
@@ -275,11 +303,12 @@ function EditDaySheet({
       location: b?.location,
       duration: b?.duration,
       difficulty: b?.difficulty,
-      equipment: b?.equipment ?? [],
-      warmup: b?.warmup ?? [],
-      workout: b?.workout ?? [],
     }));
+    setEquipmentText((b?.equipment ?? []).join("\n"));
+    setWarmupText((b?.warmup ?? []).join("\n"));
+    setWorkoutText((b?.workout ?? []).map((w) => `${w.title} | ${w.detail}`).join("\n"));
   };
+
 
   const choices: Array<{ id: ScheduleSportId; label: string; color?: string }> = [
     { id: "boxing", label: "Boxing", color: "var(--color-boxing)" },
