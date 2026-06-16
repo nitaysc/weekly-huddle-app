@@ -1,13 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   SPORTS, sportFor, sessionTime, startOfWeek, weekDates, rotationFor,
-  DAY_NAMES, DAY_NAMES_FULL, MONTH_NAMES, FRIENDS,
+  DAY_NAMES_FULL, MONTH_NAMES,
 } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
+import { useActiveCrew, useCrewMembers } from "@/hooks/use-crew";
+import { fetchSessionsRange, fetchAttendance, toDateKey } from "@/lib/sessions";
 
-export const Route = createFileRoute("/plan")({
+export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
     meta: [
       { title: "Plan — Strike & Flow" },
@@ -21,6 +24,14 @@ function PlanPage() {
   const [anchor, setAnchor] = useState(() => startOfWeek(new Date()));
   const days = weekDates(anchor);
   const rotation = rotationFor(anchor);
+  const { activeCrew } = useActiveCrew();
+  const members = useCrewMembers(activeCrew?.id);
+
+  const sessions = useQuery({
+    queryKey: ["sessions-range", activeCrew?.id, toDateKey(days[0]), toDateKey(days[6])],
+    enabled: !!activeCrew,
+    queryFn: () => fetchSessionsRange(activeCrew!.id, days[0], days[6]),
+  });
 
   const shiftWeek = (delta: number) => {
     const d = new Date(anchor);
@@ -39,7 +50,6 @@ function PlanPage() {
         <h1 className="font-display text-4xl uppercase tracking-tight leading-none">Plan</h1>
       </header>
 
-      {/* Week paginator */}
       <div className="px-6 mb-6 flex items-center justify-between animate-in">
         <button onClick={() => shiftWeek(-1)} className="size-10 rounded-full border border-border bg-surface grid place-items-center active:scale-95 transition-transform">
           <ChevronLeft className="size-4" />
@@ -60,6 +70,7 @@ function PlanPage() {
           const sId = sportFor(d);
           const s = sId ? SPORTS[sId] : null;
           const isToday = d.toDateString() === new Date().toDateString();
+          const sessionRow = sessions.data?.find((r) => r.session_date === toDateKey(d));
           return (
             <div
               key={d.toISOString()}
@@ -100,11 +111,13 @@ function PlanPage() {
                         {sessionTime(d).getHours().toString().padStart(2, "0")}:30 · {s.duration} min · {s.location}
                       </p>
                     </div>
-                    <div className="flex -space-x-1.5 mt-2">
-                      {FRIENDS.filter((f) => f.status === "going").slice(0, 4).map((f) => (
-                        <Avatar key={f.id} friend={f} size={20} ring="border-surface" />
-                      ))}
-                    </div>
+                    {sessionRow ? (
+                      <SessionGoing sessionId={sessionRow.id} members={members.data ?? []} />
+                    ) : (
+                      <p className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest mt-2">
+                        No RSVPs yet
+                      </p>
+                    )}
                   </div>
                 </Link>
               ) : (
@@ -134,6 +147,38 @@ function PlanPage() {
           </ul>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SessionGoing({
+  sessionId, members,
+}: {
+  sessionId: string;
+  members: Array<{ user_id: string; profile: { initials: string; avatar_color: string } }>;
+}) {
+  const att = useQuery({
+    queryKey: ["attendance", sessionId],
+    queryFn: () => fetchAttendance(sessionId),
+  });
+  const going = (att.data ?? []).filter((a) => a.status === "going");
+  const goingMembers = members.filter((m) => going.some((g) => g.user_id === m.user_id));
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <div className="flex -space-x-1.5">
+        {goingMembers.slice(0, 4).map((m) => (
+          <Avatar
+            key={m.user_id}
+            initials={m.profile?.initials ?? "··"}
+            color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+            size={20}
+            ring="border-surface"
+          />
+        ))}
+      </div>
+      <span className="font-mono text-[10px] text-muted-foreground">
+        {going.length} going
+      </span>
     </div>
   );
 }

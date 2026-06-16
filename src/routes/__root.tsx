@@ -100,11 +100,33 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const pathname = router.state.location.pathname;
+  const showNav = pathname !== "/auth" && !pathname.startsWith("/onboarding");
+
+  useEffect(() => {
+    let mounted = true;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (!mounted) return;
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        router.invalidate();
+        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      });
+      // store handle on window so HMR cleanup works
+      (window as any).__sfAuthSub = data.subscription;
+    });
+    return () => {
+      mounted = false;
+      (window as any).__sfAuthSub?.unsubscribe?.();
+    };
+  }, [router, queryClient]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="mx-auto min-h-screen max-w-[440px] bg-background">
         <Outlet />
-        <BottomNav />
+        {showNav && <BottomNav />}
       </div>
     </QueryClientProvider>
   );
