@@ -189,53 +189,101 @@ function PlanPage() {
         </div>
       </div>
 
-      {editing && isOwner && (
-        <EditDaySheet
-          date={editing}
-          currentSport={resolvedSportFor(editing, sessions.data).sportId}
-          isOverride={!!resolvedSportFor(editing, sessions.data).row?.is_override}
-          onClose={() => setEditing(null)}
-          onPick={async (sport) => {
-            await setMut.mutateAsync({ date: editing, sport });
-            setEditing(null);
-          }}
-          onReset={async () => {
-            await clearMut.mutateAsync(editing);
-            setEditing(null);
-          }}
-          busy={setMut.isPending || clearMut.isPending}
-        />
-      )}
+      {editing && isOwner && (() => {
+        const resolved = resolvedSportFor(editing, sessions.data);
+        return (
+          <EditDaySheet
+            date={editing}
+            row={resolved.row}
+            currentSport={resolved.sportId}
+            onClose={() => setEditing(null)}
+            onSave={async (sport, overrides) => {
+              await setSessionOverrides(activeCrew!.id, editing, sport, overrides);
+              qc.invalidateQueries({ queryKey: sessionsKey });
+              setEditing(null);
+            }}
+            onQuickPick={async (sport) => {
+              await setMut.mutateAsync({ date: editing, sport });
+              setEditing(null);
+            }}
+            onReset={async () => {
+              await clearMut.mutateAsync(editing);
+              setEditing(null);
+            }}
+            busy={setMut.isPending || clearMut.isPending}
+          />
+        );
+      })()}
     </div>
   );
 }
 
 function EditDaySheet({
-  date, currentSport, isOverride, onClose, onPick, onReset, busy,
+  date, row, currentSport, onClose, onSave, onQuickPick, onReset, busy,
 }: {
   date: Date;
+  row: SessionRow | null;
   currentSport: ScheduleSportId | null;
-  isOverride: boolean;
   onClose: () => void;
-  onPick: (sport: ScheduleSportId) => void;
+  onSave: (sport: ScheduleSportId, overrides: SessionOverrides) => void;
+  onQuickPick: (sport: ScheduleSportId) => void;
   onReset: () => void;
   busy: boolean;
 }) {
+  const [sport, setSport] = useState<ScheduleSportId>(currentSport ?? "rest");
+  const [advanced, setAdvanced] = useState(false);
+  const isOverride = !!row?.is_override;
+
+  // Defaults: existing overrides → fall back to SPORTS template → empty
+  const base = sport !== "rest" ? SPORTS[sport as SportId] : null;
+  const ov = (row?.overrides ?? {}) as SessionOverrides;
+  const [form, setForm] = useState<SessionOverrides>({
+    name: ov.name ?? base?.name,
+    tagline: ov.tagline ?? base?.tagline,
+    location: ov.location ?? base?.location,
+    duration: ov.duration ?? base?.duration,
+    difficulty: ov.difficulty ?? base?.difficulty,
+    equipment: ov.equipment ?? base?.equipment ?? [],
+    warmup: ov.warmup ?? base?.warmup ?? [],
+    workout: ov.workout ?? base?.workout ?? [],
+    notes: ov.notes ?? "",
+    startTime: ov.startTime ?? "18:30",
+  });
+
+  // When sport changes, refresh defaults from the new sport template
+  const switchSport = (next: ScheduleSportId) => {
+    setSport(next);
+    const b = next !== "rest" ? SPORTS[next as SportId] : null;
+    setForm((f) => ({
+      ...f,
+      name: b?.name,
+      tagline: b?.tagline,
+      location: b?.location,
+      duration: b?.duration,
+      difficulty: b?.difficulty,
+      equipment: b?.equipment ?? [],
+      warmup: b?.warmup ?? [],
+      workout: b?.workout ?? [],
+    }));
+  };
+
   const choices: Array<{ id: ScheduleSportId; label: string; color?: string }> = [
     { id: "boxing", label: "Boxing", color: "var(--color-boxing)" },
-    { id: "cali", label: "Calisthenics", color: "var(--color-cali)" },
-    { id: "basket", label: "Basketball", color: "var(--color-basket)" },
-    { id: "volley", label: "Volleyball", color: "var(--color-volley)" },
-    { id: "rest", label: "Rest day" },
+    { id: "cali", label: "Cali", color: "var(--color-cali)" },
+    { id: "basket", label: "Basket", color: "var(--color-basket)" },
+    { id: "volley", label: "Volley", color: "var(--color-volley)" },
+    { id: "rest", label: "Rest" },
   ];
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-[440px] mx-auto bg-surface border-t border-border rounded-t-3xl p-5 pb-8 animate-in"
+        className="relative w-full max-w-[440px] bg-surface border-t border-border rounded-t-3xl flex flex-col animate-in"
+        style={{ maxHeight: "90vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between p-5 pb-3 shrink-0">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-primary">Edit day</p>
             <h3 className="font-display text-2xl uppercase leading-none mt-1">
@@ -246,37 +294,191 @@ function EditDaySheet({
             <X className="size-4" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 mt-5">
-          {choices.map((c) => {
-            const active = currentSport === c.id;
-            return (
+
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          {/* Sport picker — always visible */}
+          <p className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest mb-2">Sport</p>
+          <div className="grid grid-cols-5 gap-1.5 mb-4">
+            {choices.map((c) => {
+              const active = sport === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => switchSport(c.id)}
+                  disabled={busy}
+                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border font-mono text-[10px] uppercase font-bold tracking-wider disabled:opacity-50 transition ${
+                    active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background/40"
+                  }`}
+                >
+                  {c.color
+                    ? <span className="size-2 rounded-full" style={{ background: c.color }} />
+                    : <span className="size-2 rounded-full bg-muted-foreground/50" />}
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {sport !== "rest" && (
+            <>
               <button
-                key={c.id}
-                onClick={() => onPick(c.id)}
-                disabled={busy}
-                className={`flex items-center gap-2 p-3 rounded-xl border text-left font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50 transition ${
-                  active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background/40"
-                }`}
+                onClick={() => setAdvanced((v) => !v)}
+                className="w-full flex items-center justify-between py-2 mb-2 text-left"
               >
-                {c.color && (
-                  <span className="size-2.5 rounded-full" style={{ background: c.color }} />
-                )}
-                {c.label}
+                <span className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest">
+                  Customize details
+                </span>
+                <span className="font-mono text-[10px] text-primary">{advanced ? "Hide" : "Show"}</span>
               </button>
-            );
-          })}
+
+              {advanced && (
+                <div className="space-y-3 mb-4">
+                  <Row label="Name">
+                    <input
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                      value={form.name ?? ""}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    />
+                  </Row>
+                  <Row label="Tagline">
+                    <input
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                      value={form.tagline ?? ""}
+                      onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                    />
+                  </Row>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Row label="Start time">
+                      <input
+                        type="time"
+                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                        value={form.startTime ?? "18:30"}
+                        onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                      />
+                    </Row>
+                    <Row label="Duration (min)">
+                      <input
+                        type="number"
+                        min={5}
+                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                        value={form.duration ?? 60}
+                        onChange={(e) => setForm({ ...form, duration: parseInt(e.target.value || "0", 10) })}
+                      />
+                    </Row>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Row label="Level">
+                      <select
+                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                        value={form.difficulty ?? "Medium"}
+                        onChange={(e) => setForm({ ...form, difficulty: e.target.value as any })}
+                      >
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
+                    </Row>
+                    <Row label="Place">
+                      <input
+                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                        value={form.location ?? ""}
+                        onChange={(e) => setForm({ ...form, location: e.target.value })}
+                      />
+                    </Row>
+                  </div>
+                  <Row label="Equipment (one per line)">
+                    <textarea
+                      rows={3}
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                      value={(form.equipment ?? []).join("\n")}
+                      onChange={(e) => setForm({ ...form, equipment: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                    />
+                  </Row>
+                  <Row label="Warm-up (one per line)">
+                    <textarea
+                      rows={3}
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                      value={(form.warmup ?? []).join("\n")}
+                      onChange={(e) => setForm({ ...form, warmup: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                    />
+                  </Row>
+                  <Row label="Session plan (one per line: Title | Detail)">
+                    <textarea
+                      rows={4}
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                      value={(form.workout ?? []).map((w) => `${w.title} | ${w.detail}`).join("\n")}
+                      onChange={(e) => setForm({
+                        ...form,
+                        workout: e.target.value.split("\n")
+                          .map((line) => {
+                            const [t, ...rest] = line.split("|");
+                            const title = (t ?? "").trim();
+                            const detail = rest.join("|").trim();
+                            return title ? { title, detail } : null;
+                          })
+                          .filter(Boolean) as Array<{ title: string; detail: string }>,
+                      })}
+                    />
+                  </Row>
+                  <Row label="Notes for the crew">
+                    <textarea
+                      rows={2}
+                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                      value={form.notes ?? ""}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    />
+                  </Row>
+                </div>
+              )}
+            </>
+          )}
+
+          {isOverride && (
+            <button
+              onClick={onReset}
+              disabled={busy}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-muted-foreground font-mono text-[10px] uppercase tracking-wider disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" /> Reset to rotation default
+            </button>
+          )}
         </div>
-        {isOverride && (
-          <button
-            onClick={onReset}
-            disabled={busy}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-muted-foreground font-mono text-[11px] uppercase tracking-wider disabled:opacity-50"
-          >
-            <Trash2 className="size-3.5" /> Reset to rotation default
-          </button>
-        )}
+
+        <div
+          className="shrink-0 p-4 border-t border-border bg-surface flex gap-2"
+          style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+        >
+          {!advanced || sport === "rest" ? (
+            <button
+              onClick={() => onQuickPick(sport)}
+              disabled={busy}
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
+            >
+              {sport === "rest" ? "Set as rest day" : `Set ${choices.find(c => c.id === sport)?.label}`}
+            </button>
+          ) : (
+            <button
+              onClick={() => onSave(sport, form)}
+              disabled={busy}
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
+            >
+              Save changes
+            </button>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest mb-1 block">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
 
