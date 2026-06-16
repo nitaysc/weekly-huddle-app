@@ -11,6 +11,8 @@ import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/l
 import { uploadAvatar, updateMyProfile } from "@/lib/profile";
 import { sendTestPush, sendCrewBroadcast } from "@/lib/push.functions";
 
+const ADMIN_EMAIL = "7nitay7@gmail.com";
+
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
