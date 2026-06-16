@@ -134,12 +134,13 @@ function HomePage() {
       <section className="px-4 mb-8">
         <Link
           to="/activity/$id"
-          params={{ id: sport.id }}
+          params={{ id: next.sportId }}
+          search={{ date: toDateKey(next.date) }}
           className="hero-sheen block relative bg-surface rounded-3xl overflow-hidden border border-border transition-transform duration-200 active:scale-[0.98] animate-in"
         >
           <img
-            src={sport.image}
-            alt={sport.name}
+            src={next.image}
+            alt={next.name}
             width={800}
             height={1000}
             className="w-full aspect-[4/5] object-cover opacity-70"
@@ -151,7 +152,7 @@ function HomePage() {
               {isToday ? "Today" : DAY_NAMES[sessionStart.getDay()]} • {sessionStart.getHours().toString().padStart(2,"0")}:{sessionStart.getMinutes().toString().padStart(2,"0")}
             </span>
             <span className="px-2 py-1 bg-background/70 backdrop-blur text-foreground font-mono text-[10px] font-bold rounded uppercase border border-border">
-              {sport.difficulty}
+              {next.difficulty}
             </span>
           </div>
 
@@ -159,10 +160,11 @@ function HomePage() {
             <div className="flex justify-between items-end mb-5">
               <div className="min-w-0">
                 <h2 className="font-display text-5xl uppercase leading-[0.9] tracking-tight">
-                  {sport.name}
+                  {next.name}
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1 truncate">{sport.tagline}</p>
+                <p className="text-sm text-muted-foreground mt-1 truncate">{next.tagline}</p>
               </div>
+
               <div className="text-right shrink-0 ml-3">
                 <p className="font-mono text-[10px] text-muted-foreground uppercase">Starts in</p>
                 <p className="font-display text-2xl text-primary tabular-nums">
