@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TABS = ["/", "/plan", "/crew", "/stats"] as const;
@@ -12,33 +12,29 @@ function tabIndex(pathname: string): number {
   return -1;
 }
 
+function computeDirection(prevPath: string, nextPath: string): 1 | -1 | 0 {
+  if (prevPath === nextPath) return 0;
+  const isDetail = (p: string) => p.startsWith("/activity");
+  if (isDetail(nextPath) && !isDetail(prevPath)) return 1;
+  if (!isDetail(nextPath) && isDetail(prevPath)) return -1;
+  const a = tabIndex(prevPath);
+  const b = tabIndex(nextPath);
+  if (a >= 0 && b >= 0 && a !== b) return b > a ? 1 : -1;
+  return 0;
+}
+
 function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const idx = tabIndex(pathname);
 
-  // Track direction for entrance animation (tabs + push/pop into detail pages)
-  const prevIdxRef = useRef(idx);
+  // Direction computed synchronously so the very first render of the new key has the right anim class
   const prevPathRef = useRef(pathname);
-  const [direction, setDirection] = useState<1 | -1 | 0>(0);
+  const direction = computeDirection(prevPathRef.current, pathname);
   useLayoutEffect(() => {
-    const prev = prevIdxRef.current;
-    const prevPath = prevPathRef.current;
-    const isDetail = (p: string) => p.startsWith("/activity");
-    if (isDetail(pathname) && !isDetail(prevPath)) {
-      // Push into a detail page
-      setDirection(1);
-    } else if (!isDetail(pathname) && isDetail(prevPath)) {
-      // Pop back from detail
-      setDirection(-1);
-    } else if (idx >= 0 && prev >= 0 && idx !== prev) {
-      setDirection(idx > prev ? 1 : -1);
-    } else {
-      setDirection(0);
-    }
-    prevIdxRef.current = idx;
     prevPathRef.current = pathname;
-  }, [idx, pathname]);
+  }, [pathname]);
+
 
 
   // Live drag state
@@ -153,7 +149,7 @@ function AuthenticatedLayout() {
 
   return (
     <div
-      className="min-h-dvh overflow-x-hidden"
+      className="min-h-dvh overflow-x-hidden bg-background"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
