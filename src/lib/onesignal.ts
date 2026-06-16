@@ -157,6 +157,8 @@ export async function requestPushPermission() {
 }
 
 export function getPushPermission(): NotificationPermission | "unsupported" {
-  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  if (typeof window === "undefined") return "unsupported";
+  if (isMedianApp()) return "default";
+  if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
 }
