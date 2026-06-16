@@ -102,6 +102,44 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          author_id: string
+          created_at: string
+          crew_id: string
+          id: string
+          reactions: Json
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          crew_id: string
+          id?: string
+          reactions?: Json
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          crew_id?: string
+          id?: string
+          reactions?: Json
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_color: string
