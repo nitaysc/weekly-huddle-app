@@ -78,12 +78,13 @@ function CrewPage() {
 
   const myId = profile.data?.id;
   const memberMap = useMemo(() => {
-    const map = new Map<string, { name: string; initials: string; color: string }>();
+    const map = new Map<string, { name: string; initials: string; color: string; avatarUrl: string | null }>();
     (members.data ?? []).forEach((m) => {
       map.set(m.user_id, {
         name: m.profile?.display_name ?? "Friend",
         initials: m.profile?.initials ?? "··",
         color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
+        avatarUrl: m.profile?.avatar_url ?? null,
       });
     });
     return map;
