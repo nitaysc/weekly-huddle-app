@@ -88,6 +88,10 @@ export async function setMyAttendance(sessionId: string, status: AttendanceStatu
       { onConflict: "session_id,user_id" },
     );
   if (error) throw error;
+  // Fire-and-forget push to crew
+  import("@/lib/notify.functions").then(({ notifyRsvpChange }) =>
+    notifyRsvpChange({ data: { sessionId, status } }).catch((e) => console.warn("notify:", e)),
+  );
 }
 
 /** Bulk-load sessions for a date range. */

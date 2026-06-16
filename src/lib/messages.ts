@@ -31,6 +31,10 @@ export async function sendMessage(crewId: string, text: string) {
     .from("messages")
     .insert({ crew_id: crewId, author_id: u.user.id, text });
   if (error) throw error;
+  // Fire-and-forget push to other crew members
+  import("@/lib/notify.functions").then(({ notifyCrewMessage }) =>
+    notifyCrewMessage({ data: { crewId, text } }).catch((e) => console.warn("notify:", e)),
+  );
 }
 
 export async function toggleReaction(msg: MessageRow, emoji: string) {
