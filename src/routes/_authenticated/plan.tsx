@@ -43,16 +43,22 @@ function PlanPage() {
     queryFn: () => fetchSessionsRange(activeCrew!.id, days[0], days[6]),
   });
 
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["sessions-range", activeCrew?.id] });
+    qc.invalidateQueries({ queryKey: ["session-for", activeCrew?.id] });
+  };
+
   const setMut = useMutation({
     mutationFn: ({ date, sport }: { date: Date; sport: ScheduleSportId }) =>
       setSchedule(activeCrew!.id, date, sport),
-    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
+    onSuccess: invalidateAll,
   });
 
   const clearMut = useMutation({
     mutationFn: (date: Date) => clearSchedule(activeCrew!.id, date),
-    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
+    onSuccess: invalidateAll,
   });
+
 
   const shiftWeek = (delta: number) => {
     const d = new Date(anchor);
