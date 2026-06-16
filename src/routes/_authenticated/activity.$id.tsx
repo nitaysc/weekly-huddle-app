@@ -1,10 +1,16 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Clock, MapPin, Cloud, Dumbbell, Flame, Check,
 } from "lucide-react";
-import { SPORTS, FRIENDS, type SportId, type Friend } from "@/lib/data";
+import { useState } from "react";
+import { SPORTS, type SportId, nextSession } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
+import { useActiveCrew, useCrewMembers, useMyProfile } from "@/hooks/use-crew";
+import {
+  ensureSession, fetchAttendance, setMyAttendance, toDateKey,
+  type AttendanceStatus,
+} from "@/lib/sessions";
 
 export const Route = createFileRoute("/_authenticated/activity/$id")({
   head: ({ params }) => {
@@ -36,16 +42,43 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
   component: ActivityPage,
 });
 
-type Status = Friend["status"];
-
 function ActivityPage() {
   const { id } = Route.useParams();
   const sport = SPORTS[id as SportId];
-  const [myStatus, setMyStatus] = useState<Status>("going");
+  const { activeCrew } = useActiveCrew();
+  const profile = useMyProfile();
+  const members = useCrewMembers(activeCrew?.id);
+  const qc = useQueryClient();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  const goingCount =
-    FRIENDS.filter((f) => f.id !== "you" && f.status === "going").length + (myStatus === "going" ? 1 : 0);
+  // Find next date in rotation matching this sport
+  const target = findNextDateForSport(id as SportId) ?? new Date();
+
+  const sessionQ = useQuery({
+    queryKey: ["session-for", activeCrew?.id, toDateKey(target)],
+    enabled: !!activeCrew,
+    queryFn: () => ensureSession(activeCrew!.id, target),
+  });
+
+  const attendanceQ = useQuery({
+    queryKey: ["attendance", sessionQ.data?.id],
+    enabled: !!sessionQ.data?.id,
+    queryFn: () => fetchAttendance(sessionQ.data!.id),
+  });
+
+  const rsvp = useMutation({
+    mutationFn: async (status: AttendanceStatus) => {
+      if (!sessionQ.data) return;
+      await setMyAttendance(sessionQ.data.id, status);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", sessionQ.data?.id] }),
+  });
+
+  const attendance = attendanceQ.data ?? [];
+  const myStatus = attendance.find((a) => a.user_id === profile.data?.id)?.status;
+  const byStatus = (s: AttendanceStatus) =>
+    new Set(attendance.filter((a) => a.status === s).map((a) => a.user_id));
+  const going = byStatus("going");
 
   return (
     <div className="pb-28">
@@ -78,7 +111,6 @@ function ActivityPage() {
         </div>
       </div>
 
-      {/* Quick meta */}
       <section className="px-4 -mt-2 mb-6">
         <div className="grid grid-cols-3 gap-2">
           <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${sport.duration}m`} />
@@ -87,7 +119,6 @@ function ActivityPage() {
         </div>
       </section>
 
-      {/* Description */}
       <section className="px-6 mb-6">
         <p className="text-sm leading-relaxed text-muted-foreground">{sport.description}</p>
         {sport.outdoor && (
@@ -102,39 +133,52 @@ function ActivityPage() {
       <section className="px-6 mb-6">
         <p className="font-mono text-[10px] uppercase text-muted-foreground mb-2">Your status</p>
         <div className="grid grid-cols-3 gap-2">
-          {(["going", "maybe", "out"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setMyStatus(s)}
-              className={`py-3 rounded-xl border font-mono text-[11px] uppercase font-bold tracking-wider transition ${
-                myStatus === s
-                  ? s === "going"
-                    ? "bg-going/15 border-going text-going"
-                    : s === "maybe"
-                    ? "bg-maybe/15 border-maybe text-maybe"
-                    : "bg-out/15 border-out text-out"
-                  : "border-border text-muted-foreground bg-surface"
-              }`}
-            >
-              {s === "going" ? "I'm in" : s === "maybe" ? "Maybe" : "Can't"}
-            </button>
-          ))}
+          {(["going", "maybe", "out"] as const).map((s) => {
+            const active = myStatus === s;
+            const cls = active
+              ? s === "going" ? "bg-going/15 border-going text-going"
+                : s === "maybe" ? "bg-maybe/15 border-maybe text-maybe"
+                : "bg-out/15 border-out text-out"
+              : "border-border text-muted-foreground bg-surface";
+            return (
+              <button
+                key={s}
+                onClick={() => rsvp.mutate(s)}
+                disabled={rsvp.isPending || !sessionQ.data}
+                className={`py-3 rounded-xl border font-mono text-[11px] uppercase font-bold tracking-wider transition disabled:opacity-50 ${cls}`}
+              >
+                {s === "going" ? "I'm in" : s === "maybe" ? "Maybe" : "Can't"}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       {/* Crew */}
       <section className="px-6 mb-6">
         <div className="flex items-baseline justify-between mb-3">
-          <h3 className="font-display text-xl uppercase">Crew · {goingCount} going</h3>
+          <h3 className="font-display text-xl uppercase">Crew · {going.size} going</h3>
         </div>
         <div className="bg-surface rounded-2xl border border-border divide-y divide-border">
-          {FRIENDS.filter((f) => f.id !== "you").map((f) => (
-            <div key={f.id} className="flex items-center gap-3 p-3">
-              <Avatar friend={f} ring="border-surface" />
-              <p className="flex-1 text-sm font-semibold">{f.name}</p>
-              <StatusBadge status={f.status} />
-            </div>
-          ))}
+          {(members.data ?? []).map((m) => {
+            const aRow = attendance.find((a) => a.user_id === m.user_id);
+            return (
+              <div key={m.user_id} className="flex items-center gap-3 p-3">
+                <Avatar
+                  initials={m.profile?.initials ?? "··"}
+                  color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                  ring="border-surface"
+                />
+                <p className="flex-1 text-sm font-semibold">
+                  {m.profile?.display_name ?? "Friend"}
+                  {m.user_id === profile.data?.id && (
+                    <span className="ml-2 font-mono text-[9px] uppercase text-muted-foreground">you</span>
+                  )}
+                </p>
+                <StatusBadge status={aRow?.status as AttendanceStatus | undefined} />
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -202,6 +246,17 @@ function ActivityPage() {
   );
 }
 
+function findNextDateForSport(sportId: SportId): Date | null {
+  const now = new Date();
+  for (let i = 0; i < 21; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const next = nextSession(d);
+    if (next && next.sport.id === sportId) return next.date;
+  }
+  return null;
+}
+
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-surface rounded-xl border border-border p-3 text-center">
@@ -213,14 +268,20 @@ function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; va
   );
 }
 
-function StatusBadge({ status }: { status: Status }) {
+function StatusBadge({ status }: { status: AttendanceStatus | undefined }) {
   const map = {
     going: "text-going border-going/40 bg-going/10",
     maybe: "text-maybe border-maybe/40 bg-maybe/10",
     out: "text-out border-out/40 bg-out/10",
-    unknown: "text-muted-foreground border-border",
   } as const;
-  const label = status === "going" ? "Going" : status === "maybe" ? "Maybe" : status === "out" ? "Out" : "—";
+  if (!status) {
+    return (
+      <span className="font-mono text-[10px] uppercase font-bold px-2 py-1 rounded border text-muted-foreground border-border">
+        —
+      </span>
+    );
+  }
+  const label = status === "going" ? "Going" : status === "maybe" ? "Maybe" : "Out";
   return (
     <span className={`font-mono text-[10px] uppercase font-bold px-2 py-1 rounded border ${map[status]}`}>
       {label}
