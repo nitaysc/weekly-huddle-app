@@ -105,3 +105,54 @@ export async function fetchSessionsRange(crewId: string, start: Date, end: Date)
 export function sportIdOf(row: { sport_id: string }): SportId {
   return row.sport_id as SportId;
 }
+
+/** Owner-only: set the sport for a given date (creates or updates the session row). */
+export async function setSchedule(
+  crewId: string,
+  date: Date,
+  sportId: ScheduleSportId,
+): Promise<SessionRow> {
+  const key = toDateKey(date);
+  const starts = sessionTime(date).toISOString();
+  const { data, error } = await supabase
+    .from("sessions")
+    .upsert(
+      {
+        crew_id: crewId,
+        session_date: key,
+        sport_id: sportId,
+        starts_at: starts,
+        is_override: true,
+      },
+      { onConflict: "crew_id,session_date" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SessionRow;
+}
+
+/** Owner-only: clear an override and fall back to the default rotation. */
+export async function clearSchedule(crewId: string, date: Date) {
+  const key = toDateKey(date);
+  const { error } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("crew_id", crewId)
+    .eq("session_date", key);
+  if (error) throw error;
+}
+
+/** Resolved sport for a day: override row wins, else default rotation, else null. */
+export function resolvedSportFor(
+  date: Date,
+  sessionsRows: SessionRow[] | undefined,
+): { sportId: ScheduleSportId | null; row: SessionRow | null } {
+  const key = toDateKey(date);
+  const row = sessionsRows?.find((r) => r.session_date === key) ?? null;
+  if (row) {
+    return { sportId: row.sport_id as ScheduleSportId, row };
+  }
+  const def = sportFor(date);
+  return { sportId: def ?? null, row: null };
+}
