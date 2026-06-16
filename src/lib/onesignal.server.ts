@@ -31,13 +31,14 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
   const rawKey = process.env.ONESIGNAL_REST_API_KEY;
   const key = rawKey ? normalizeRestApiKey(rawKey) : "";
   if (!key) throw new Error("ONESIGNAL_REST_API_KEY missing");
-  if (args.externalUserIds.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+  const externalUserIds = [...new Set(args.externalUserIds.filter(Boolean))];
+  if (externalUserIds.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0 };
 
   const launchUrl = args.url ? absoluteUrl(args.url) : undefined;
 
   const payload: Record<string, unknown> = {
     app_id: ONESIGNAL_APP_ID,
-    include_aliases: { external_id: args.externalUserIds },
+    include_aliases: { external_id: externalUserIds },
     target_channel: "push",
     headings: { en: args.headings },
     contents: { en: args.contents },
@@ -47,8 +48,7 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
   if (launchUrl) {
-    // `url` is the web launch URL; `app_url`/`web_url` ensure native + web both deep-link properly.
-    payload.url = launchUrl;
+    // OneSignal rejects `url` when app_url/web_url are present. Use the explicit fields for native + web deep links.
     payload.web_url = launchUrl;
     payload.app_url = launchUrl;
   }
