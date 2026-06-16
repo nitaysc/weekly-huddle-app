@@ -26,6 +26,42 @@ function canUseWebPushHost(): boolean {
   return window.location.hostname === WEB_PUSH_HOST || window.location.hostname === "localhost";
 }
 
+function runMedianOneSignal(action: (os: any) => void, label: string, retries = 20) {
+  const os = window.median?.onesignal;
+  if (os) {
+    try {
+      action(os);
+    } catch (err) {
+      console.warn(`[Median OneSignal] ${label} failed:`, err);
+    }
+    return;
+  }
+  if (retries <= 0) {
+    console.warn(`[Median OneSignal] ${label} skipped: bridge not ready`);
+    return;
+  }
+  window.setTimeout(() => runMedianOneSignal(action, label, retries - 1), 250);
+}
+
+function waitForMedianOneSignal(timeoutMs = 5000): Promise<any | null> {
+  const started = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const os = window.median?.onesignal;
+      if (os) {
+        resolve(os);
+        return;
+      }
+      if (Date.now() - started >= timeoutMs) {
+        resolve(null);
+        return;
+      }
+      window.setTimeout(check, 250);
+    };
+    check();
+  });
+}
+
 let injected = false;
 
 /** Inject the OneSignal SDK script. Safe to call multiple times. */
