@@ -233,12 +233,13 @@ function StatsPage() {
               >
                 {i + 1}
               </span>
-              <div
-                className="size-8 rounded-full grid place-items-center font-mono text-[10px] font-bold text-background"
-                style={{ background: f.color }}
-              >
-                {f.initials}
-              </div>
+              <Avatar
+                initials={f.initials}
+                color={f.color}
+                imageUrl={f.avatarUrl}
+                size={32}
+                ring="border-surface"
+              />
               <p className="flex-1 text-sm font-semibold">{f.name}</p>
               <p className="font-mono text-xs">{f.count}</p>
             </div>
