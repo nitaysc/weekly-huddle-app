@@ -54,7 +54,7 @@ export const sendCrewBroadcast = createServerFn({ method: "POST" })
       .map((m) => m.user_id as string)
       .filter((id) => data.includeSelf || id !== userId);
 
-    if (targets.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+    if (targets.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0, targeted: 0 };
 
     const { sendOneSignalToUsers } = await import("@/lib/onesignal.server");
     const title = (data.title || "").trim().slice(0, 60) || "Crew update";
