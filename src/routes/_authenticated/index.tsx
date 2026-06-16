@@ -102,7 +102,7 @@ function HomePage() {
 
 
   return (
-    <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
+    <div className="pb-28 selection:bg-primary selection:text-primary-foreground stagger">
       {/* Header */}
       <header className="px-6 pt-10 pb-5 flex justify-between items-end animate-in">
         <div className="min-w-0">
