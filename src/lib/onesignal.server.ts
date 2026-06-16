@@ -55,11 +55,10 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{
     chrome_web_icon: `${SITE_ORIGIN}/favicon.ico`,
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
-  if (launchUrl) {
-    // Median opens tapped native notifications from Additional Data `targetUrl`.
-    // OneSignal's normal launch URL opens externally, so reserve `web_url` for browser push only.
-    payload.web_url = launchUrl;
-  }
+  // Median opens tapped notifications from Additional Data `targetUrl` inside the
+  // app's webview. Any top-level `url`/`web_url`/`app_url` on the OneSignal payload
+  // causes the OS to open the link externally in the browser instead — so we
+  // intentionally omit them and rely on `targetUrl` only.
   const notificationData: Record<string, unknown> = { ...(args.data ?? {}) };
   if (launchUrl) notificationData.targetUrl = launchUrl;
   if (Object.keys(notificationData).length > 0) payload.data = notificationData;
