@@ -10,6 +10,8 @@ declare global {
   }
 }
 
+const WEB_PUSH_HOST = "weekly-huddle-app.lovable.app";
+
 /** True when running inside the Median native wrapper. */
 function isMedianApp(): boolean {
   if (typeof window === "undefined") return false;
@@ -29,6 +31,10 @@ export function initOneSignal() {
   // Inside the Median wrapper, the native OneSignal plugin handles everything.
   // Loading the web SDK would create a second, conflicting subscription.
   if (isMedianApp()) return;
+
+  // OneSignal web push is bound to the published domain configured in OneSignal.
+  // Preview/editor domains throw "Can only be used on..." and prevent clean setup.
+  if (window.location.hostname !== WEB_PUSH_HOST && window.location.hostname !== "localhost") return;
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
@@ -53,14 +59,12 @@ export function initOneSignal() {
 export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   if (typeof window === "undefined") return;
 
-  // Median native OneSignal plugin: set externalId via JS Bridge so the
-  // native subscription is reachable via include_aliases.external_id.
+  // Median native OneSignal plugin: login() sets the externalId used by server sends.
   if (isMedianApp()) {
     try {
       const m = window.median;
-      // The Median bridge exposes onesignal.externalUser.set
-      m?.onesignal?.externalUser?.set?.({ externalId: userId });
-      if (crewId) m?.onesignal?.tags?.setTags?.({ crew_id: crewId });
+      m?.onesignal?.login?.(userId);
+      if (crewId) m?.onesignal?.tags?.setTags?.({ tags: { crew_id: crewId } });
     } catch (err) {
       console.warn("[Median OneSignal] identify failed:", err);
     }
@@ -80,8 +84,41 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   });
 }
 
+export function logoutOneSignalUser() {
+  if (typeof window === "undefined") return;
+
+  if (isMedianApp()) {
+    try {
+      window.median?.onesignal?.logout?.();
+    } catch (err) {
+      console.warn("[Median OneSignal] logout failed:", err);
+    }
+    return;
+  }
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async (OneSignal: any) => {
+    try {
+      await OneSignal.logout();
+    } catch {}
+  });
+}
+
 export async function requestPushPermission() {
   if (typeof window === "undefined") return false;
+
+  if (isMedianApp()) {
+    try {
+      const os = window.median?.onesignal;
+      os?.userPrivacyConsent?.grant?.();
+      os?.register?.();
+      return true;
+    } catch (err) {
+      console.warn("[Median OneSignal] permission request failed:", err);
+      return false;
+    }
+  }
+
   return await new Promise<boolean>((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
