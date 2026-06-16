@@ -106,15 +106,21 @@ function RootComponent() {
 
   useEffect(() => {
     let mounted = true;
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      const { data } = supabase.auth.onAuthStateChange((event) => {
-        if (!mounted) return;
-        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-        router.invalidate();
-        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+    import("@/lib/onesignal").then(({ initOneSignal, identifyOneSignalUser }) => {
+      initOneSignal();
+      import("@/integrations/supabase/client").then(({ supabase }) => {
+        supabase.auth.getUser().then(({ data }) => {
+          if (data.user) identifyOneSignalUser(data.user.id);
+        });
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          if (!mounted) return;
+          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+          if (event === "SIGNED_IN" && session?.user) identifyOneSignalUser(session.user.id);
+          router.invalidate();
+          if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+        });
+        (window as any).__sfAuthSub = data.subscription;
       });
-      // store handle on window so HMR cleanup works
-      (window as any).__sfAuthSub = data.subscription;
     });
     return () => {
       mounted = false;

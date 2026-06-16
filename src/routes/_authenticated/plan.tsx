@@ -1,14 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Pencil, X, Trash2 } from "lucide-react";
 import {
-  SPORTS, sportFor, sessionTime, startOfWeek, weekDates, rotationFor,
-  DAY_NAMES_FULL, MONTH_NAMES,
+  SPORTS, sessionTime, startOfWeek, weekDates, rotationFor,
+  DAY_NAMES_FULL, MONTH_NAMES, type SportId,
 } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
 import { useActiveCrew, useCrewMembers } from "@/hooks/use-crew";
-import { fetchSessionsRange, fetchAttendance, toDateKey } from "@/lib/sessions";
+import {
+  fetchSessionsRange, fetchAttendance, toDateKey,
+  setSchedule, clearSchedule, resolvedSportFor,
+  type ScheduleSportId,
+} from "@/lib/sessions";
 
 export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
@@ -22,15 +26,32 @@ export const Route = createFileRoute("/_authenticated/plan")({
 
 function PlanPage() {
   const [anchor, setAnchor] = useState(() => startOfWeek(new Date()));
+  const [editing, setEditing] = useState<Date | null>(null);
   const days = weekDates(anchor);
   const rotation = rotationFor(anchor);
-  const { activeCrew } = useActiveCrew();
+  const { activeCrew, crews } = useActiveCrew();
   const members = useCrewMembers(activeCrew?.id);
+  const qc = useQueryClient();
 
+  const myCrew = crews.find((c) => c.id === activeCrew?.id);
+  const isOwner = myCrew?.role === "owner";
+
+  const sessionsKey = ["sessions-range", activeCrew?.id, toDateKey(days[0]), toDateKey(days[6])] as const;
   const sessions = useQuery({
-    queryKey: ["sessions-range", activeCrew?.id, toDateKey(days[0]), toDateKey(days[6])],
+    queryKey: sessionsKey,
     enabled: !!activeCrew,
     queryFn: () => fetchSessionsRange(activeCrew!.id, days[0], days[6]),
+  });
+
+  const setMut = useMutation({
+    mutationFn: ({ date, sport }: { date: Date; sport: ScheduleSportId }) =>
+      setSchedule(activeCrew!.id, date, sport),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
+  });
+
+  const clearMut = useMutation({
+    mutationFn: (date: Date) => clearSchedule(activeCrew!.id, date),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
   });
 
   const shiftWeek = (delta: number) => {
@@ -48,6 +69,11 @@ function PlanPage() {
           Rotation • Week {rotation}
         </p>
         <h1 className="font-display text-4xl uppercase tracking-tight leading-none">Plan</h1>
+        {isOwner && (
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
+            Owner mode · tap <Pencil className="inline size-3 -mt-0.5" /> to change any day
+          </p>
+        )}
       </header>
 
       <div className="px-6 mb-6 flex items-center justify-between animate-in">
@@ -67,17 +93,31 @@ function PlanPage() {
 
       <div className="px-4 space-y-3 animate-in">
         {days.map((d) => {
-          const sId = sportFor(d);
-          const s = sId ? SPORTS[sId] : null;
+          const { sportId, row } = resolvedSportFor(d, sessions.data);
+          const s = sportId && sportId !== "rest" ? SPORTS[sportId as SportId] : null;
           const isToday = d.toDateString() === new Date().toDateString();
-          const sessionRow = sessions.data?.find((r) => r.session_date === toDateKey(d));
+          const sessionRow = row;
           return (
             <div
               key={d.toISOString()}
-              className={`rounded-2xl border bg-surface overflow-hidden ${
+              className={`rounded-2xl border bg-surface overflow-hidden relative ${
                 isToday ? "border-primary" : "border-border"
               }`}
             >
+              {isOwner && (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing(d); }}
+                  className="absolute top-2 right-2 z-10 size-8 rounded-full bg-background/80 backdrop-blur border border-border grid place-items-center active:scale-95"
+                  aria-label="Edit day"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              )}
+              {row?.is_override && (
+                <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 font-mono text-[8px] uppercase font-bold tracking-wider rounded bg-primary text-primary-foreground">
+                  Custom
+                </span>
+              )}
               {s ? (
                 <Link
                   to="/activity/$id"
@@ -121,7 +161,7 @@ function PlanPage() {
                   </div>
                 </Link>
               ) : (
-                <div className="flex items-center gap-4 p-4 opacity-60">
+                <div className="flex items-center gap-4 p-4 opacity-70">
                   <div className="size-10 rounded-full border-2 border-dashed border-border grid place-items-center">
                     <span className="font-display text-base">{d.getDate()}</span>
                   </div>
@@ -144,8 +184,97 @@ function PlanPage() {
           <ul className="text-xs text-muted-foreground space-y-1">
             <li><span className="text-primary">Week A:</span> Mon/Thu Boxing · Tue/Fri Calisthenics</li>
             <li><span className="text-primary">Week B:</span> Mon/Thu Basketball · Tue/Fri Volleyball</li>
+            {isOwner && <li className="text-muted-foreground/70">As owner, your custom days override the rotation.</li>}
           </ul>
         </div>
+      </div>
+
+      {editing && isOwner && (
+        <EditDaySheet
+          date={editing}
+          currentSport={resolvedSportFor(editing, sessions.data).sportId}
+          isOverride={!!resolvedSportFor(editing, sessions.data).row?.is_override}
+          onClose={() => setEditing(null)}
+          onPick={async (sport) => {
+            await setMut.mutateAsync({ date: editing, sport });
+            setEditing(null);
+          }}
+          onReset={async () => {
+            await clearMut.mutateAsync(editing);
+            setEditing(null);
+          }}
+          busy={setMut.isPending || clearMut.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditDaySheet({
+  date, currentSport, isOverride, onClose, onPick, onReset, busy,
+}: {
+  date: Date;
+  currentSport: ScheduleSportId | null;
+  isOverride: boolean;
+  onClose: () => void;
+  onPick: (sport: ScheduleSportId) => void;
+  onReset: () => void;
+  busy: boolean;
+}) {
+  const choices: Array<{ id: ScheduleSportId; label: string; color?: string }> = [
+    { id: "boxing", label: "Boxing", color: "var(--color-boxing)" },
+    { id: "cali", label: "Calisthenics", color: "var(--color-cali)" },
+    { id: "basket", label: "Basketball", color: "var(--color-basket)" },
+    { id: "volley", label: "Volleyball", color: "var(--color-volley)" },
+    { id: "rest", label: "Rest day" },
+  ];
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-[440px] mx-auto bg-surface border-t border-border rounded-t-3xl p-5 pb-8 animate-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-primary">Edit day</p>
+            <h3 className="font-display text-2xl uppercase leading-none mt-1">
+              {DAY_NAMES_FULL[date.getDay()]} {date.getDate()}
+            </h3>
+          </div>
+          <button onClick={onClose} className="size-9 rounded-full border border-border grid place-items-center">
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-5">
+          {choices.map((c) => {
+            const active = currentSport === c.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => onPick(c.id)}
+                disabled={busy}
+                className={`flex items-center gap-2 p-3 rounded-xl border text-left font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50 transition ${
+                  active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background/40"
+                }`}
+              >
+                {c.color && (
+                  <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                )}
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+        {isOverride && (
+          <button
+            onClick={onReset}
+            disabled={busy}
+            className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-muted-foreground font-mono text-[11px] uppercase tracking-wider disabled:opacity-50"
+          >
+            <Trash2 className="size-3.5" /> Reset to rotation default
+          </button>
+        )}
       </div>
     </div>
   );
