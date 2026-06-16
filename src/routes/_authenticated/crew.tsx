@@ -331,7 +331,14 @@ function PushTestButton() {
     setResult(null);
     try {
       const r = await send();
-      setResult(r.ok ? "Sent ✓ — check your device" : `Failed (${r.status})`);
+      if (r.ok) {
+        const note = r.invalidAliases
+          ? `Sent ✓ (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
+          : "Sent ✓ — check your device";
+        setResult(note);
+      } else {
+        setResult(`Failed (${r.status})`);
+      }
     } catch (e: any) {
       setResult(e?.message ?? "Error");
     } finally {
