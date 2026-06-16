@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Flame, Target, TrendingUp } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import { SPORTS, type SportId } from "@/lib/data";
 import { useActiveCrew, useCrewMembers, useMyProfile } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,16 +103,17 @@ function StatsPage() {
   ).length;
 
   // Streak: consecutive past sessions attended
-  const sortedPast = [...attendance]
-    .filter((a) => a.sessions && new Date(a.sessions.session_date) <= new Date())
-    .sort(
-      (a, b) =>
-        new Date(b.sessions!.session_date).getTime() -
-        new Date(a.sessions!.session_date).getTime(),
-    );
+  const pastSessionDates = [...new Set(
+    attendance
+      .filter((a) => a.sessions && new Date(a.sessions.session_date) <= new Date())
+      .map((a) => a.sessions!.session_date),
+  )].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   let streak = 0;
-  for (const a of sortedPast) {
-    if (a.user_id === myId) streak++;
+  for (const date of pastSessionDates) {
+    const attended = attendance.some(
+      (a) => a.user_id === myId && a.sessions?.session_date === date && a.status === "going",
+    );
+    if (attended) streak++;
     else break;
   }
 
@@ -134,6 +136,7 @@ function StatsPage() {
       name: m.profile?.display_name ?? "Friend",
       initials: m.profile?.initials ?? "··",
       color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
+      avatarUrl: m.profile?.avatar_url ?? null,
       count: tallies.get(m.user_id) ?? 0,
     }))
     .sort((a, b) => b.count - a.count);
@@ -230,12 +233,13 @@ function StatsPage() {
               >
                 {i + 1}
               </span>
-              <div
-                className="size-8 rounded-full grid place-items-center font-mono text-[10px] font-bold text-background"
-                style={{ background: f.color }}
-              >
-                {f.initials}
-              </div>
+              <Avatar
+                initials={f.initials}
+                color={f.color}
+                imageUrl={f.avatarUrl}
+                size={32}
+                ring="border-surface"
+              />
               <p className="flex-1 text-sm font-semibold">{f.name}</p>
               <p className="font-mono text-xs">{f.count}</p>
             </div>

@@ -188,6 +188,7 @@ function ActivityPage() {
                 <Avatar
                   initials={m.profile?.initials ?? "··"}
                   color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+                  imageUrl={m.profile?.avatar_url ?? null}
                   ring="border-surface"
                 />
                 <p className="flex-1 text-sm font-semibold">

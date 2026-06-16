@@ -486,7 +486,7 @@ function SessionGoing({
   sessionId, members,
 }: {
   sessionId: string;
-  members: Array<{ user_id: string; profile: { initials: string; avatar_color: string } }>;
+  members: Array<{ user_id: string; profile: { initials: string; avatar_color: string; avatar_url: string | null } }>;
 }) {
   const att = useQuery({
     queryKey: ["attendance", sessionId],
@@ -502,6 +502,7 @@ function SessionGoing({
             key={m.user_id}
             initials={m.profile?.initials ?? "··"}
             color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+            imageUrl={m.profile?.avatar_url ?? null}
             size={20}
             ring="border-surface"
           />
