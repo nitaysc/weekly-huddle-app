@@ -123,6 +123,11 @@ export async function requestPushPermission() {
       const os = window.median?.onesignal;
       os?.userPrivacyConsent?.grant?.();
       os?.register?.();
+      if (lastIdentifiedUser) {
+        os?.login?.(lastIdentifiedUser.userId);
+        os?.externalUserId?.set?.({ externalId: lastIdentifiedUser.userId });
+        if (lastIdentifiedUser.crewId) os?.tags?.setTags?.({ tags: { crew_id: lastIdentifiedUser.crewId } });
+      }
       return true;
     } catch (err) {
       console.warn("[Median OneSignal] permission request failed:", err);
@@ -134,7 +139,15 @@ export async function requestPushPermission() {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
       try {
+        if (!canUseWebPushHost()) {
+          resolve(false);
+          return;
+        }
         const granted = await OneSignal.Notifications.requestPermission();
+        if (granted && lastIdentifiedUser) {
+          await OneSignal.login(lastIdentifiedUser.userId);
+          if (lastIdentifiedUser.crewId) await OneSignal.User.addTag("crew_id", lastIdentifiedUser.crewId);
+        }
         resolve(!!granted);
       } catch {
         resolve(false);
