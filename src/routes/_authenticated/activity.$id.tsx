@@ -287,6 +287,15 @@ function findNextDateForSport(sportId: SportId): Date | null {
   return null;
 }
 
+function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split("-").map((n) => parseInt(n, 10));
+  const out = new Date();
+  out.setFullYear(y, (m || 1) - 1, d || 1);
+  out.setHours(12, 0, 0, 0);
+  return out;
+}
+
+
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-surface rounded-xl border border-border p-3 text-center">
