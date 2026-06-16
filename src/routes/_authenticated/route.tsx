@@ -149,7 +149,7 @@ function AuthenticatedLayout() {
 
   return (
     <div
-      className="min-h-dvh overflow-x-hidden"
+      className="min-h-dvh overflow-x-hidden bg-background"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
