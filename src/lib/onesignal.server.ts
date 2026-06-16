@@ -16,6 +16,16 @@ interface SendArgs {
   nativeOnly?: boolean;
 }
 
+interface OneSignalSubscription {
+  id?: string;
+  type?: string;
+  enabled?: boolean;
+  notification_types?: number;
+  device_os?: string;
+  web_auth?: string;
+  web_p256?: string;
+}
+
 function normalizeRestApiKey(value: string) {
   return value
     .trim()
@@ -27,6 +37,27 @@ function normalizeRestApiKey(value: string) {
 function absoluteUrl(url: string) {
   if (/^https?:\/\//i.test(url)) return url;
   return SITE_ORIGIN + (url.startsWith("/") ? url : "/" + url);
+}
+
+function isNativePushSubscription(sub: OneSignalSubscription) {
+  const type = (sub.type ?? "").toLowerCase();
+  const deviceOs = (sub.device_os ?? "").toLowerCase();
+  const isWeb = type.includes("web") || type.includes("chrome") || type.includes("firefox") || type.includes("safari") || !!sub.web_auth || !!sub.web_p256;
+  const isMobile = type.includes("android") || type.includes("ios") || type.includes("mobile") || deviceOs.includes("android") || deviceOs.includes("ios");
+  const isSubscribed = sub.enabled !== false && (typeof sub.notification_types !== "number" || sub.notification_types > 0);
+  return !!sub.id && isSubscribed && isMobile && !isWeb;
+}
+
+async function getNativeSubscriptionIds(externalUserIds: string[], key: string) {
+  const ids = await Promise.all(externalUserIds.map(async (userId) => {
+    const res = await fetch(`https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/users/by/external_id/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Key ${key}` },
+    });
+    if (!res.ok) return [];
+    const user = await res.json().catch(() => null) as { subscriptions?: OneSignalSubscription[] } | null;
+    return (user?.subscriptions ?? []).filter(isNativePushSubscription).map((sub) => sub.id!);
+  }));
+  return [...new Set(ids.flat())];
 }
 
 export async function sendOneSignalToUsers(args: SendArgs): Promise<{
@@ -46,10 +77,17 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{
 
   const launchUrl = args.url ? absoluteUrl(args.url) : undefined;
 
+  const nativeSubscriptionIds = args.nativeOnly ? await getNativeSubscriptionIds(externalUserIds, key) : [];
+  if (args.nativeOnly && nativeSubscriptionIds.length === 0) {
+    console.warn("[OneSignal] no native subscriptions for push", { targets: externalUserIds.length });
+    return { ok: true, status: 0, body: "no-native-targets", recipients: 0 };
+  }
+
   const payload: Record<string, unknown> = {
     app_id: ONESIGNAL_APP_ID,
-    include_aliases: { external_id: externalUserIds },
-    target_channel: "push",
+    ...(args.nativeOnly
+      ? { include_subscription_ids: nativeSubscriptionIds }
+      : { include_aliases: { external_id: externalUserIds }, target_channel: "push" }),
     headings: { en: args.headings },
     contents: { en: args.contents },
     priority: 10,
