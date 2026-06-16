@@ -7,7 +7,7 @@ interface SendArgs {
   externalUserIds: string[];
   headings: string;
   contents: string;
-  /** Path or absolute URL. Relative paths are resolved against the production origin so clicking the notification opens the app, not a Google search. */
+  /** Path or absolute URL. Relative paths are resolved against the production origin. */
   url?: string;
   data?: Record<string, unknown>;
   /** Collapse key — newer notifications replace older ones with the same key */
@@ -27,12 +27,20 @@ function absoluteUrl(url: string) {
   return SITE_ORIGIN + (url.startsWith("/") ? url : "/" + url);
 }
 
-export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolean; status: number; body: string; recipients?: number; invalidAliases?: number }> {
+export async function sendOneSignalToUsers(args: SendArgs): Promise<{
+  ok: boolean;
+  status: number;
+  body: string;
+  recipients?: number;
+  invalidAliases?: number;
+}> {
   const rawKey = process.env.ONESIGNAL_REST_API_KEY;
   const key = rawKey ? normalizeRestApiKey(rawKey) : "";
   if (!key) throw new Error("ONESIGNAL_REST_API_KEY missing");
   const externalUserIds = [...new Set(args.externalUserIds.filter(Boolean))];
-  if (externalUserIds.length === 0) return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+  if (externalUserIds.length === 0) {
+    return { ok: true, status: 0, body: "no-targets", recipients: 0 };
+  }
 
   const launchUrl = args.url ? absoluteUrl(args.url) : undefined;
 
@@ -48,12 +56,13 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     chrome_web_badge: `${SITE_ORIGIN}/favicon.ico`,
   };
   if (launchUrl) {
-    // Use the single cross-platform `url` field. In native wrappers (Median), this opens
-    // inside the app's webview instead of the system browser. `app_url` would force-open
-    // the OS browser, which is what we want to avoid.
-    payload.url = launchUrl;
+    // Median opens tapped native notifications from Additional Data `targetUrl`.
+    // OneSignal's normal launch URL opens externally, so reserve `web_url` for browser push only.
+    payload.web_url = launchUrl;
   }
-  if (args.data) payload.data = args.data;
+  const notificationData: Record<string, unknown> = { ...(args.data ?? {}) };
+  if (launchUrl) notificationData.targetUrl = launchUrl;
+  if (Object.keys(notificationData).length > 0) payload.data = notificationData;
   if (args.collapseId) {
     payload.web_push_topic = args.collapseId;
     payload.collapse_id = args.collapseId;
@@ -80,8 +89,11 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     // body wasn't JSON
   }
 
-  if (!res.ok) console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
-  else if (invalidAliases) console.warn("[OneSignal] some recipients had no subscription", { invalidAliases, recipients });
+  if (!res.ok) {
+    console.error("[OneSignal] send failed", res.status, body, { keyLength: key.length });
+  } else if (invalidAliases) {
+    console.warn("[OneSignal] some recipients had no subscription", { invalidAliases, recipients });
+  }
 
   // Only treat HTTP failure as failure. invalid_aliases is a partial-delivery warning,
   // not a failure — other recipients still received the push.
