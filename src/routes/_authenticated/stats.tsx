@@ -23,10 +23,13 @@ function StatsPage() {
 
   return (
     <div className="pb-28">
-      <header className="px-6 pt-10 pb-5 animate-in">
+      <header className="px-6 pt-10 pb-3 animate-in">
         <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-1">Your numbers</p>
         <h1 className="font-display text-4xl uppercase tracking-tight leading-none">Stats</h1>
       </header>
+      <p className="px-6 pb-5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground animate-in">
+        Preview · real attendance stats arrive in the next update
+      </p>
 
       {/* Headline stats */}
       <section className="px-4 grid grid-cols-2 gap-3 mb-6 animate-in">
