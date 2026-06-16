@@ -157,7 +157,7 @@ function AuthenticatedLayout() {
         startX.current = null;
         startY.current = null;
         locked.current = null;
-        if (dragging.current) reset(true);
+        if (dragging.current) reset();
         dragging.current = false;
       }}
     >
