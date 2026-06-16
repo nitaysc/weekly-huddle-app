@@ -148,21 +148,11 @@ export async function createCrew(name: string) {
 }
 
 export async function joinCrewByCode(code: string) {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) throw new Error("Not signed in");
   const cleaned = code.trim().toUpperCase();
-  const { data: crew, error } = await supabase
-    .from("crews")
-    .select("*")
-    .eq("invite_code", cleaned)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("join_crew_by_code", { _code: cleaned });
   if (error) throw error;
-  if (!crew) throw new Error("No crew found for that code");
-  const { error: insErr } = await supabase
-    .from("crew_members")
-    .insert({ crew_id: crew.id, user_id: u.user.id, role: "member" });
-  if (insErr && !String(insErr.message).toLowerCase().includes("duplicate")) throw insErr;
-  return crew as CrewRow;
+  if (!data) throw new Error("No crew found for that code");
+  return data as unknown as CrewRow;
 }
 
 export function useSignOut() {
