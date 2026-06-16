@@ -13,6 +13,9 @@ import {
 } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_authenticated/activity/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    date: typeof search.date === "string" ? search.date : undefined,
+  }),
   head: ({ params }) => {
     const s = SPORTS[params.id as SportId];
     return {
@@ -44,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
 
 function ActivityPage() {
   const { id } = Route.useParams();
+  const { date: dateParam } = Route.useSearch();
   const baseSport = SPORTS[id as SportId];
   const { activeCrew } = useActiveCrew();
   const profile = useMyProfile();
@@ -51,14 +55,18 @@ function ActivityPage() {
   const qc = useQueryClient();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  // Find next date in rotation matching this sport
-  const target = findNextDateForSport(id as SportId) ?? new Date();
+  // Prefer an explicit date passed from Home/Plan; otherwise fall back to the
+  // next rotation day for this sport.
+  const target = dateParam
+    ? parseDateKey(dateParam)
+    : (findNextDateForSport(id as SportId) ?? new Date());
 
   const sessionQ = useQuery({
     queryKey: ["session-for", activeCrew?.id, toDateKey(target)],
     enabled: !!activeCrew,
     queryFn: () => ensureSession(activeCrew!.id, target),
   });
+
 
   // Merge per-session overrides on top of the default sport definition
   const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & { startTime?: string };
