@@ -14,13 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance: {
+        Row: {
+          id: string
+          session_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crew_members: {
+        Row: {
+          crew_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          crew_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          crew_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_members_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crews: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          invite_code: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          invite_code: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          invite_code?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_color: string
+          created_at: string
+          display_name: string
+          id: string
+          initials: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_color?: string
+          created_at?: string
+          display_name: string
+          id: string
+          initials: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_color?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          initials?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          crew_id: string
+          id: string
+          notes: string | null
+          session_date: string
+          sport_id: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          crew_id: string
+          id?: string
+          notes?: string | null
+          session_date: string
+          sport_id: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          crew_id?: string
+          id?: string
+          notes?: string | null
+          session_date?: string
+          sport_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_crew_member: {
+        Args: { _crew_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
