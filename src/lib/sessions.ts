@@ -174,3 +174,35 @@ export function resolvedSportFor(
   const def = sportFor(date);
   return { sportId: def ?? null, row: null };
 }
+
+/** Owner-only: write detailed overrides (name, equipment, workout, etc.) for a given date. */
+export async function setSessionOverrides(
+  crewId: string,
+  date: Date,
+  sportId: ScheduleSportId,
+  overrides: SessionOverrides,
+): Promise<SessionRow> {
+  const key = toDateKey(date);
+  const base = sessionTime(date);
+  if (overrides.startTime) {
+    const [hh, mm] = overrides.startTime.split(":").map((x) => parseInt(x, 10));
+    if (!isNaN(hh) && !isNaN(mm)) base.setHours(hh, mm, 0, 0);
+  }
+  const { data, error } = await supabase
+    .from("sessions")
+    .upsert(
+      {
+        crew_id: crewId,
+        session_date: key,
+        sport_id: sportId,
+        starts_at: base.toISOString(),
+        is_override: true,
+        overrides,
+      },
+      { onConflict: "crew_id,session_date" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SessionRow;
+}
