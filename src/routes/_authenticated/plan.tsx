@@ -35,8 +35,7 @@ function PlanPage() {
   const qc = useQueryClient();
 
   const myCrew = crews.find((c) => c.id === activeCrew?.id);
-  const isOwner = !!myCrew && myCrew.role === "owner" && myCrew.created_by === profile.data?.id
-    || !!myCrew && myCrew.role === "owner";
+  const isOwner = myCrew?.role === "owner";
 
   const sessionsKey = ["sessions-range", activeCrew?.id, toDateKey(days[0]), toDateKey(days[6])] as const;
   const sessions = useQuery({
