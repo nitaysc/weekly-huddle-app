@@ -7,8 +7,6 @@ declare global {
     OneSignalDeferred?: Array<(os: any) => void>;
     OneSignal?: any;
     median?: any;
-    /** Median injects this user agent token inside the native wrapper */
-    navigator: Navigator;
   }
 }
 
