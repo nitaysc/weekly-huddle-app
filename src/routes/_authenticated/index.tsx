@@ -8,7 +8,7 @@ import {
 import { Countdown } from "@/components/Countdown";
 import { Avatar } from "@/components/Avatar";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Today — Strike & Flow" },

@@ -13,7 +13,7 @@ import { Route as StatsRouteImport } from './routes/stats'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as CrewRouteImport } from './routes/crew'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ActivityIdRouteImport } from './routes/activity.$id'
+import { Route as AuthenticatedActivityIdRouteImport } from './routes/_authenticated/activity.$id'
 
 const StatsRoute = StatsRouteImport.update({
   id: '/stats',
@@ -35,8 +35,8 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActivityIdRoute = ActivityIdRouteImport.update({
-  id: '/activity/$id',
+const AuthenticatedActivityIdRoute = AuthenticatedActivityIdRouteImport.update({
+  id: '/_authenticated/activity/$id',
   path: '/activity/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -46,14 +46,14 @@ export interface FileRoutesByFullPath {
   '/crew': typeof CrewRoute
   '/plan': typeof PlanRoute
   '/stats': typeof StatsRoute
-  '/activity/$id': typeof ActivityIdRoute
+  '/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/crew': typeof CrewRoute
   '/plan': typeof PlanRoute
   '/stats': typeof StatsRoute
-  '/activity/$id': typeof ActivityIdRoute
+  '/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,14 +61,20 @@ export interface FileRoutesById {
   '/crew': typeof CrewRoute
   '/plan': typeof PlanRoute
   '/stats': typeof StatsRoute
-  '/activity/$id': typeof ActivityIdRoute
+  '/_authenticated/activity/$id': typeof AuthenticatedActivityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
-  id: '__root__' | '/' | '/crew' | '/plan' | '/stats' | '/activity/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/crew'
+    | '/plan'
+    | '/stats'
+    | '/_authenticated/activity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,7 +82,7 @@ export interface RootRouteChildren {
   CrewRoute: typeof CrewRoute
   PlanRoute: typeof PlanRoute
   StatsRoute: typeof StatsRoute
-  ActivityIdRoute: typeof ActivityIdRoute
+  AuthenticatedActivityIdRoute: typeof AuthenticatedActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,11 +115,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/activity/$id': {
-      id: '/activity/$id'
+    '/_authenticated/activity/$id': {
+      id: '/_authenticated/activity/$id'
       path: '/activity/$id'
       fullPath: '/activity/$id'
-      preLoaderRoute: typeof ActivityIdRouteImport
+      preLoaderRoute: typeof AuthenticatedActivityIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -124,7 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrewRoute: CrewRoute,
   PlanRoute: PlanRoute,
   StatsRoute: StatsRoute,
-  ActivityIdRoute: ActivityIdRoute,
+  AuthenticatedActivityIdRoute: AuthenticatedActivityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
