@@ -43,16 +43,22 @@ function PlanPage() {
     queryFn: () => fetchSessionsRange(activeCrew!.id, days[0], days[6]),
   });
 
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["sessions-range", activeCrew?.id] });
+    qc.invalidateQueries({ queryKey: ["session-for", activeCrew?.id] });
+  };
+
   const setMut = useMutation({
     mutationFn: ({ date, sport }: { date: Date; sport: ScheduleSportId }) =>
       setSchedule(activeCrew!.id, date, sport),
-    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
+    onSuccess: invalidateAll,
   });
 
   const clearMut = useMutation({
     mutationFn: (date: Date) => clearSchedule(activeCrew!.id, date),
-    onSuccess: () => qc.invalidateQueries({ queryKey: sessionsKey }),
+    onSuccess: invalidateAll,
   });
+
 
   const shiftWeek = (delta: number) => {
     const d = new Date(anchor);
@@ -97,6 +103,12 @@ function PlanPage() {
           const s = sportId && sportId !== "rest" ? SPORTS[sportId as SportId] : null;
           const isToday = d.toDateString() === new Date().toDateString();
           const sessionRow = row;
+          const ov = (row?.overrides ?? {}) as SessionOverrides;
+          const displayName = ov.name ?? s?.name;
+          const displayLocation = ov.location ?? s?.location;
+          const displayDuration = ov.duration ?? s?.duration;
+          const displayStart = row?.starts_at ? new Date(row.starts_at) : sessionTime(d);
+          const startLabel = `${displayStart.getHours().toString().padStart(2, "0")}:${displayStart.getMinutes().toString().padStart(2, "0")}`;
           return (
             <div
               key={d.toISOString()}
@@ -122,11 +134,12 @@ function PlanPage() {
                 <Link
                   to="/activity/$id"
                   params={{ id: s.id }}
+                  search={{ date: toDateKey(d) }}
                   className="flex gap-4 p-3 active:scale-[0.99] transition-transform"
                 >
                   <img
                     src={s.image}
-                    alt={s.name}
+                    alt={displayName ?? s.name}
                     loading="lazy"
                     className="w-20 h-20 rounded-xl object-cover shrink-0"
                   />
@@ -140,7 +153,7 @@ function PlanPage() {
                       )}
                     </div>
                     <h3 className="font-display text-2xl uppercase leading-none mt-1">
-                      {s.name}
+                      {displayName}
                     </h3>
                     <div className="flex items-center gap-2 mt-2">
                       <span
@@ -148,7 +161,7 @@ function PlanPage() {
                         style={{ background: `var(--color-${s.colorVar})` }}
                       />
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {sessionTime(d).getHours().toString().padStart(2, "0")}:30 · {s.duration} min · {s.location}
+                        {startLabel} · {displayDuration} min · {displayLocation}
                       </p>
                     </div>
                     {sessionRow ? (
@@ -178,6 +191,7 @@ function PlanPage() {
         })}
       </div>
 
+
       <div className="px-6 mt-8 animate-in">
         <div className="rounded-2xl border border-dashed border-border p-4 bg-surface/40">
           <p className="font-mono text-[10px] uppercase text-muted-foreground mb-2">Rotation rules</p>
@@ -199,7 +213,7 @@ function PlanPage() {
             onClose={() => setEditing(null)}
             onSave={async (sport, overrides) => {
               await setSessionOverrides(activeCrew!.id, editing, sport, overrides);
-              qc.invalidateQueries({ queryKey: sessionsKey });
+              invalidateAll();
               setEditing(null);
             }}
             onQuickPick={async (sport) => {

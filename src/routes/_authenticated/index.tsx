@@ -4,7 +4,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChevronRight, MapPin, Clock, Flame, LogOut } from "lucide-react";
 import {
   SPORTS, QUOTES,
-  nextSession, rotationFor, weekDates, sportFor,
+  rotationFor, weekDates,
   DAY_NAMES, MONTH_NAMES,
 } from "@/lib/data";
 import { Countdown } from "@/components/Countdown";
@@ -13,9 +13,10 @@ import {
   useActiveCrew, useCrewMembers, useMyProfile, useSignOut,
 } from "@/hooks/use-crew";
 import {
-  ensureSession, fetchAttendance, setMyAttendance, toDateKey,
+  ensureSession, fetchAttendance, fetchSessionsRange,
+  effectiveSessionFor, nextResolvedSession,
+  setMyAttendance, toDateKey,
 } from "@/lib/sessions";
-// no direct supabase import needed here
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -41,12 +42,23 @@ function HomePage() {
   }, [crewsLoading, crews.length, navigate]);
 
   const now = new Date();
-  const next = nextSession(now);
   const rotation = rotationFor(now);
   const week = weekDates(now);
   const quote = QUOTES[now.getDate() % QUOTES.length];
 
   const members = useCrewMembers(activeCrew?.id);
+
+  // Load overrides for the next ~3 weeks so the home card reflects owner edits.
+  const rangeStart = week[0];
+  const rangeEnd = new Date(now);
+  rangeEnd.setDate(now.getDate() + 21);
+  const sessionsRangeQ = useQuery({
+    queryKey: ["sessions-range", activeCrew?.id, toDateKey(rangeStart), toDateKey(rangeEnd)],
+    enabled: !!activeCrew,
+    queryFn: () => fetchSessionsRange(activeCrew!.id, rangeStart, rangeEnd),
+  });
+
+  const next = nextResolvedSession(now, sessionsRangeQ.data);
 
   // ensure today/next session exists for the crew and load attendance
   const sessionQ = useQuery({
@@ -77,7 +89,7 @@ function HomePage() {
     );
   }
 
-  const { date: sessionStart, sport } = next;
+  const sessionStart = next.start;
   const isToday = sessionStart.toDateString() === now.toDateString();
 
   const attendance = attendanceQ.data ?? [];
@@ -87,8 +99,7 @@ function HomePage() {
   const goingMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "going");
   const maybeMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "maybe");
   const outMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "out");
-  const goingIds = new Set(goingMembers.map((m) => m.user_id));
-  void goingIds;
+
 
   return (
     <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
@@ -123,12 +134,13 @@ function HomePage() {
       <section className="px-4 mb-8">
         <Link
           to="/activity/$id"
-          params={{ id: sport.id }}
+          params={{ id: next.sportId }}
+          search={{ date: toDateKey(next.date) }}
           className="hero-sheen block relative bg-surface rounded-3xl overflow-hidden border border-border transition-transform duration-200 active:scale-[0.98] animate-in"
         >
           <img
-            src={sport.image}
-            alt={sport.name}
+            src={next.image}
+            alt={next.name}
             width={800}
             height={1000}
             className="w-full aspect-[4/5] object-cover opacity-70"
@@ -140,7 +152,7 @@ function HomePage() {
               {isToday ? "Today" : DAY_NAMES[sessionStart.getDay()]} • {sessionStart.getHours().toString().padStart(2,"0")}:{sessionStart.getMinutes().toString().padStart(2,"0")}
             </span>
             <span className="px-2 py-1 bg-background/70 backdrop-blur text-foreground font-mono text-[10px] font-bold rounded uppercase border border-border">
-              {sport.difficulty}
+              {next.difficulty}
             </span>
           </div>
 
@@ -148,10 +160,11 @@ function HomePage() {
             <div className="flex justify-between items-end mb-5">
               <div className="min-w-0">
                 <h2 className="font-display text-5xl uppercase leading-[0.9] tracking-tight">
-                  {sport.name}
+                  {next.name}
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1 truncate">{sport.tagline}</p>
+                <p className="text-sm text-muted-foreground mt-1 truncate">{next.tagline}</p>
               </div>
+
               <div className="text-right shrink-0 ml-3">
                 <p className="font-mono text-[10px] text-muted-foreground uppercase">Starts in</p>
                 <p className="font-display text-2xl text-primary tabular-nums">
@@ -236,8 +249,8 @@ function HomePage() {
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2 px-6 no-scrollbar">
           {week.map((d) => {
-            const sId = sportFor(d);
-            const s = sId ? SPORTS[sId] : null;
+            const eff = effectiveSessionFor(d, sessionsRangeQ.data);
+            const s = eff ? SPORTS[eff.sportId] : null;
             const isCurrent = d.toDateString() === now.toDateString();
             return (
               <div
@@ -266,6 +279,7 @@ function HomePage() {
             );
           })}
         </div>
+
       </section>
 
       {/* Quick stats */}
@@ -293,13 +307,20 @@ function HomePage() {
       <section className="px-6 mb-8 animate-in">
         <h3 className="font-display text-xl uppercase mb-3">Session brief</h3>
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">{sport.description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{next.description}</p>
           <div className="grid grid-cols-2 gap-3">
-            <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${sport.duration} min`} />
-            <Meta icon={<MapPin className="size-3.5" />} label="Location" value={sport.location} />
+            <Meta icon={<Clock className="size-3.5" />} label="Duration" value={`${next.duration} min`} />
+            <Meta icon={<MapPin className="size-3.5" />} label="Location" value={next.location} />
           </div>
+          {next.notes && (
+            <div className="mt-1 p-3 rounded-xl border border-primary/40 bg-primary/5">
+              <p className="font-mono text-[9px] uppercase text-primary tracking-widest mb-1">Note from owner</p>
+              <p className="text-xs text-foreground whitespace-pre-wrap">{next.notes}</p>
+            </div>
+          )}
         </div>
       </section>
+
 
       {/* Quote */}
       <section className="px-6 animate-in">

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { sessionTime, sportFor, type SportId } from "@/lib/data";
+import { sessionTime, sportFor, SPORTS, type Sport, type SportId } from "@/lib/data";
 
 export type ScheduleSportId = SportId | "rest";
 
@@ -205,4 +205,73 @@ export async function setSessionOverrides(
     .single();
   if (error) throw error;
   return data as SessionRow;
+}
+
+/** Merge default sport template with per-session overrides (name, time, location, etc.). */
+export interface EffectiveSession {
+  date: Date;
+  start: Date;
+  row: SessionRow | null;
+  sportId: SportId;
+  baseSport: Sport;
+  name: string;
+  tagline: string;
+  location: string;
+  duration: number;
+  difficulty: "Easy" | "Medium" | "Hard";
+  equipment: string[];
+  warmup: string[];
+  workout: Array<{ title: string; detail: string }>;
+  description: string;
+  image: string;
+  colorVar: string;
+  shortName: string;
+  notes?: string;
+}
+
+export function effectiveSessionFor(
+  date: Date,
+  sessions: SessionRow[] | undefined,
+): EffectiveSession | null {
+  const { sportId, row } = resolvedSportFor(date, sessions);
+  if (!sportId || sportId === "rest") return null;
+  const base = SPORTS[sportId as SportId];
+  if (!base) return null;
+  const ov = (row?.overrides ?? {}) as SessionOverrides;
+  const start = row?.starts_at ? new Date(row.starts_at) : sessionTime(date);
+  return {
+    date,
+    start,
+    row,
+    sportId: sportId as SportId,
+    baseSport: base,
+    name: ov.name ?? base.name,
+    tagline: ov.tagline ?? base.tagline,
+    location: ov.location ?? base.location,
+    duration: ov.duration ?? base.duration,
+    difficulty: ov.difficulty ?? base.difficulty,
+    equipment: ov.equipment?.length ? ov.equipment : base.equipment,
+    warmup: ov.warmup?.length ? ov.warmup : base.warmup,
+    workout: ov.workout?.length ? ov.workout : base.workout,
+    description: base.description,
+    image: base.image,
+    colorVar: base.colorVar,
+    shortName: base.shortName,
+    notes: ov.notes,
+  };
+}
+
+export function nextResolvedSession(
+  from: Date,
+  sessions: SessionRow[] | undefined,
+): EffectiveSession | null {
+  for (let i = 0; i < 21; i++) {
+    const d = new Date(from);
+    d.setDate(from.getDate() + i);
+    const eff = effectiveSessionFor(d, sessions);
+    if (!eff) continue;
+    // include sessions that started within the last hour as "current"
+    if (eff.start.getTime() > from.getTime() - 60 * 60 * 1000) return eff;
+  }
+  return null;
 }
