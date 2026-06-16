@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Check, Send, LogOut, Camera, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
 import { uploadAvatar, updateMyProfile } from "@/lib/profile";
+import { sendTestPush } from "@/lib/push.functions";
+
+const ADMIN_EMAIL = "7nitay7@gmail.com";
+
 
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
