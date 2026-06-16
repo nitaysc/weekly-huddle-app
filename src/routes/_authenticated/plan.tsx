@@ -487,7 +487,7 @@ function SessionGoing({
 }: {
   sessionId: string;
   members: Array<{ user_id: string; profile: { initials: string; avatar_color: string; avatar_url: string | null } }>;
-})
+}) {
   const att = useQuery({
     queryKey: ["attendance", sessionId],
     queryFn: () => fetchAttendance(sessionId),
