@@ -27,9 +27,7 @@ function absoluteUrl(url: string) {
   return SITE_ORIGIN + (url.startsWith("/") ? url : "/" + url);
 }
 
-export async function sendOneSignalToUsers(
-  args: SendArgs,
-): Promise<{
+export async function sendOneSignalToUsers(args: SendArgs): Promise<{
   ok: boolean;
   status: number;
   body: string;
