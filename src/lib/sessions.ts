@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { sessionTime, sportFor, type SportId } from "@/lib/data";
+import { sessionTime, sportFor, SPORTS, type Sport, type SportId } from "@/lib/data";
 
 export type ScheduleSportId = SportId | "rest";
 
