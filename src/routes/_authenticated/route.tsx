@@ -45,38 +45,38 @@ function AuthenticatedLayout() {
   const locked = useRef<"x" | "y" | null>(null);
   const widthRef = useRef(0);
 
-  const setTransform = (dx: number, withTransition = false) => {
+  const setTransform = (dx: number) => {
     const el = pageRef.current;
     if (!el) return;
-    el.style.transition = withTransition
-      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease"
-      : "none";
-    const w = widthRef.current || el.offsetWidth || 1;
-    const ratio = Math.max(-1, Math.min(1, dx / w));
-    const opacity = 1 - Math.abs(ratio) * 0.35;
+    el.style.transition = "none";
     el.style.transform = `translate3d(${dx}px, 0, 0)`;
-    el.style.opacity = String(opacity);
   };
 
-  const reset = (withTransition = true) => {
+  const reset = () => {
     const el = pageRef.current;
     if (!el) return;
-    el.style.transition = withTransition
-      ? "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 280ms ease"
-      : "none";
-    el.style.transform = "";
-    el.style.opacity = "";
+    el.style.transition = "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.transform = "translate3d(0, 0, 0)";
+    // Clear after animation to let class-based anims own things again
+    window.setTimeout(() => {
+      if (!pageRef.current) return;
+      pageRef.current.style.transition = "";
+      pageRef.current.style.transform = "";
+    }, 340);
   };
 
-  const flyOut = (dir: 1 | -1, onDone: () => void) => {
+  const flyOut = (dir: 1 | -1, fromDx: number, onDone: () => void) => {
     const el = pageRef.current;
     if (!el) return onDone();
-    const w = widthRef.current || el.offsetWidth || 0;
-    el.style.transition = "transform 260ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms ease";
-    el.style.transform = `translate3d(${-dir * w * 0.35}px, 0, 0)`;
-    el.style.opacity = "0";
-    window.setTimeout(onDone, 200);
+    const w = widthRef.current || el.offsetWidth || window.innerWidth;
+    // Continue from current finger position to fully off-screen
+    el.style.transition = "transform 260ms cubic-bezier(0.32, 0.72, 0, 1)";
+    el.style.transform = `translate3d(${-dir * w}px, 0, 0)`;
+    void el.offsetWidth; // force flush
+    // Fire navigation slightly before fly-out completes so incoming page slide overlaps the tail
+    window.setTimeout(onDone, 180);
   };
+
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (idx < 0) return;
