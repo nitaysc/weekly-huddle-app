@@ -136,6 +136,12 @@ function ActivityPage() {
 
       <section className="px-6 mb-6">
         <p className="text-sm leading-relaxed text-muted-foreground">{sport.description}</p>
+        {overrideNotes && (
+          <div className="mt-3 p-3 rounded-xl border border-primary/40 bg-primary/5">
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mb-1">Note from owner</p>
+            <p className="text-xs text-foreground whitespace-pre-wrap">{overrideNotes}</p>
+          </div>
+        )}
         {sport.outdoor && (
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Cloud className="size-3.5 text-primary" />
