@@ -3,6 +3,19 @@ import { sessionTime, sportFor, type SportId } from "@/lib/data";
 
 export type ScheduleSportId = SportId | "rest";
 
+export interface SessionOverrides {
+  name?: string;
+  tagline?: string;
+  location?: string;
+  duration?: number;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  equipment?: string[];
+  warmup?: string[];
+  workout?: Array<{ title: string; detail: string }>;
+  notes?: string;
+  startTime?: string; // "HH:MM"
+}
+
 export interface SessionRow {
   id: string;
   crew_id: string;
@@ -11,6 +24,7 @@ export interface SessionRow {
   starts_at: string;
   notes: string | null;
   is_override?: boolean;
+  overrides?: SessionOverrides;
 }
 
 export type AttendanceStatus = "going" | "maybe" | "out";
