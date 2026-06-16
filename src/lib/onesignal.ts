@@ -79,10 +79,10 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
     return;
   }
 
+  if (!canUseWebPushHost()) return;
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
-      if (!canUseWebPushHost()) return;
       await OneSignal.login(userId);
       if (crewId) {
         await OneSignal.User.addTag("crew_id", crewId);
@@ -135,14 +135,11 @@ export async function requestPushPermission() {
     }
   }
 
+  if (!canUseWebPushHost()) return false;
   return await new Promise<boolean>((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
       try {
-        if (!canUseWebPushHost()) {
-          resolve(false);
-          return;
-        }
         const granted = await OneSignal.Notifications.requestPermission();
         if (granted && lastIdentifiedUser) {
           await OneSignal.login(lastIdentifiedUser.userId);
