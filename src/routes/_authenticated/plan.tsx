@@ -7,7 +7,7 @@ import {
   DAY_NAMES_FULL, MONTH_NAMES, type SportId,
 } from "@/lib/data";
 import { Avatar } from "@/components/Avatar";
-import { useActiveCrew, useCrewMembers, useMyProfile } from "@/hooks/use-crew";
+import { useActiveCrew, useCrewMembers } from "@/hooks/use-crew";
 import {
   fetchSessionsRange, fetchAttendance, toDateKey,
   setSchedule, clearSchedule, resolvedSportFor,
