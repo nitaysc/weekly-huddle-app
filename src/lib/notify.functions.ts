@@ -55,6 +55,7 @@ export const notifyCrewMessage = createServerFn({ method: "POST" })
       contents: preview,
       url: "/crew",
       data: { kind: "message", crewId: data.crewId },
+      nativeOnly: true,
     });
     return { sent: targets.length };
   });
