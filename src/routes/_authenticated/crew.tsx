@@ -64,6 +64,30 @@ function CrewPage() {
     };
   }, [activeCrew?.id, qc]);
 
+  // Chat presence — tell the server we're viewing the chat so push is suppressed
+  useEffect(() => {
+    if (!activeCrew?.id || !profile.data?.id) return;
+    const ping = async () => {
+      const until = new Date(Date.now() + 45_000).toISOString();
+      await supabase
+        .from("crew_members")
+        .update({ chat_open_until: until })
+        .eq("crew_id", activeCrew.id)
+        .eq("user_id", profile.data!.id);
+    };
+    ping();
+    const t = setInterval(ping, 25_000);
+    return () => {
+      clearInterval(t);
+      // Clear presence on leave
+      supabase
+        .from("crew_members")
+        .update({ chat_open_until: new Date(0).toISOString() })
+        .eq("crew_id", activeCrew.id)
+        .eq("user_id", profile.data!.id);
+    };
+  }, [activeCrew?.id, profile.data?.id]);
+
   const [draft, setDraft] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

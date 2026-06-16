@@ -48,6 +48,7 @@ export type Database = {
       }
       crew_members: {
         Row: {
+          chat_open_until: string | null
           crew_id: string
           id: string
           joined_at: string
@@ -55,6 +56,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          chat_open_until?: string | null
           crew_id: string
           id?: string
           joined_at?: string
@@ -62,6 +64,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          chat_open_until?: string | null
           crew_id?: string
           id?: string
           joined_at?: string

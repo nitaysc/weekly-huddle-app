@@ -8,6 +8,8 @@ interface SendArgs {
   contents: string;
   url?: string;
   data?: Record<string, unknown>;
+  /** Collapse key — newer notifications replace older ones with the same key */
+  collapseId?: string;
 }
 
 export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolean; status: number; body: string }> {
@@ -21,9 +23,20 @@ export async function sendOneSignalToUsers(args: SendArgs): Promise<{ ok: boolea
     target_channel: "push",
     headings: { en: args.headings },
     contents: { en: args.contents },
+    // Reduce Chrome's "site may be sending spam" flagging:
+    priority: 10,
+    ttl: 86400,
+    // Use site favicon as the notification icon so Chrome shows a branded image
+    chrome_web_icon: "https://weekly-huddle-app.lovable.app/favicon.ico",
+    chrome_web_badge: "https://weekly-huddle-app.lovable.app/favicon.ico",
   };
   if (args.url) payload.url = args.url;
   if (args.data) payload.data = args.data;
+  if (args.collapseId) {
+    // Both fields exist for cross-platform collapsing
+    payload.web_push_topic = args.collapseId;
+    payload.collapse_id = args.collapseId;
+  }
 
   const res = await fetch("https://api.onesignal.com/notifications", {
     method: "POST",

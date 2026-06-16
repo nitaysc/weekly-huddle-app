@@ -32,14 +32,17 @@ export const notifyCrewMessage = createServerFn({ method: "POST" })
       .eq("id", data.crewId)
       .maybeSingle();
 
+    const nowIso = new Date().toISOString();
     const { data: members } = await supabase
       .from("crew_members")
-      .select("user_id")
+      .select("user_id, chat_open_until")
       .eq("crew_id", data.crewId);
 
     const targets = (members ?? [])
-      .map((m) => m.user_id as string)
-      .filter((id) => id !== userId);
+      .filter((m) => m.user_id !== userId)
+      // Skip members who currently have the chat open
+      .filter((m) => !m.chat_open_until || m.chat_open_until < nowIso)
+      .map((m) => m.user_id as string);
 
     if (targets.length === 0) return { sent: 0 };
 
@@ -52,6 +55,7 @@ export const notifyCrewMessage = createServerFn({ method: "POST" })
       contents: preview,
       url: "/crew",
       data: { kind: "message", crewId: data.crewId },
+      collapseId: `crew-${data.crewId}-chat`,
     });
     return { sent: targets.length };
   });

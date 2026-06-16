@@ -82,8 +82,13 @@ function HomePage() {
 
   const attendance = attendanceQ.data ?? [];
   const myAttendance = attendance.find((a) => a.user_id === profile.data?.id);
-  const goingIds = new Set(attendance.filter((a) => a.status === "going").map((a) => a.user_id));
-  const goingMembers = (members.data ?? []).filter((m) => goingIds.has(m.user_id));
+  const statusMap = new Map(attendance.map((a) => [a.user_id, a.status]));
+  const allMembers = members.data ?? [];
+  const goingMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "going");
+  const maybeMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "maybe");
+  const outMembers = allMembers.filter((m) => statusMap.get(m.user_id) === "out");
+  const goingIds = new Set(goingMembers.map((m) => m.user_id));
+  void goingIds;
 
   return (
     <div className="pb-28 selection:bg-primary selection:text-primary-foreground">
@@ -209,6 +214,18 @@ function HomePage() {
         </div>
       </section>
 
+      {/* Who's in */}
+      <section className="px-6 mb-8 animate-in">
+        <h3 className="font-display text-xl uppercase mb-3">Who's in</h3>
+        <div className="space-y-3">
+          <RsvpRow label="Going" tone="going" members={goingMembers} />
+          <RsvpRow label="Maybe" tone="maybe" members={maybeMembers} />
+          <RsvpRow label="Can't" tone="out" members={outMembers} />
+        </div>
+      </section>
+
+
+
       {/* Week strip */}
       <section className="mb-8 animate-in">
         <div className="px-6 flex justify-between items-center mb-3">
@@ -302,6 +319,48 @@ function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; va
         {icon} {label}
       </p>
       <p className="text-sm font-semibold truncate">{value}</p>
+    </div>
+  );
+}
+
+function RsvpRow({
+  label,
+  tone,
+  members,
+}: {
+  label: string;
+  tone: "going" | "maybe" | "out";
+  members: Array<{ user_id: string; profile?: { display_name?: string | null; initials?: string | null; avatar_color?: string | null; avatar_url?: string | null } | null }>;
+}) {
+  const toneClass =
+    tone === "going" ? "text-going border-going/40 bg-going/10"
+    : tone === "maybe" ? "text-maybe border-maybe/40 bg-maybe/10"
+    : "text-out border-out/40 bg-out/10";
+  return (
+    <div className="bg-surface border border-border rounded-2xl p-3 flex items-center gap-3">
+      <span className={`px-2 py-1 rounded-full border font-mono text-[10px] uppercase tracking-widest shrink-0 ${toneClass}`}>
+        {label} · {members.length}
+      </span>
+      <div className="flex -space-x-2 min-w-0 overflow-hidden">
+        {members.slice(0, 6).map((m) => (
+          <Avatar
+            key={m.user_id}
+            initials={m.profile?.initials ?? "··"}
+            color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
+            imageUrl={m.profile?.avatar_url ?? null}
+            size={28}
+            ring="border-surface"
+          />
+        ))}
+        {members.length === 0 && (
+          <span className="font-mono text-[10px] text-muted-foreground uppercase">—</span>
+        )}
+      </div>
+      {members.length > 0 && (
+        <p className="text-xs text-muted-foreground truncate ml-auto">
+          {members.map((m) => m.profile?.display_name ?? "Friend").join(", ")}
+        </p>
+      )}
     </div>
   );
 }
