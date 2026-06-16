@@ -55,7 +55,6 @@ export const notifyCrewMessage = createServerFn({ method: "POST" })
       contents: preview,
       url: "/crew",
       data: { kind: "message", crewId: data.crewId },
-      collapseId: `crew-${data.crewId}-chat`,
     });
     return { sent: targets.length };
   });
