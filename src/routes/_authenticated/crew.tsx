@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing, Megaphone } from "lucide-react";
+import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing, Megaphone, UserMinus, Trash2, DoorOpen, X, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
-import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut } from "@/hooks/use-crew";
+import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut, useActiveCrewId } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMessages, sendMessage, toggleReaction, type MessageRow } from "@/lib/messages";
 import { uploadAvatar, updateMyProfile } from "@/lib/profile";
@@ -17,21 +17,23 @@ const ADMIN_EMAIL = "7nitay7@gmail.com";
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
     meta: [
-      { title: "Crew — Strike & Flow" },
+      { title: "Crew \u2014 Strike & Flow" },
       { name: "description", content: "Your training crew and group chat." },
     ],
   }),
   component: CrewPage,
 });
 
-const QUICK_EMOJI = ["🔥", "💪", "👀", "😂", "❤️"];
+const QUICK_EMOJI = ["\uD83D\uDD25", "\uD83D\uDCAA", "\uD83D\uDC40", "\uD83D\uDE02", "\u2764\uFE0F"];
 
 function CrewPage() {
+  const navigate = useNavigate();
   const { activeCrew } = useActiveCrew();
   const members = useCrewMembers(activeCrew?.id);
   const profile = useMyProfile();
   const signOut = useSignOut();
   const qc = useQueryClient();
+  const [, setActiveCrewId] = useActiveCrewId();
 
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -64,8 +66,7 @@ function CrewPage() {
     };
   }, [activeCrew?.id, qc]);
 
-  // Chat presence — only suppress push while the chat is actually in the foreground.
-  // When the tab/app is hidden or backgrounded, clear presence so push fires.
+  // Chat presence
   useEffect(() => {
     if (!activeCrew?.id || !profile.data?.id) return;
     const crewId = activeCrew.id;
@@ -143,7 +144,7 @@ function CrewPage() {
     (members.data ?? []).forEach((m) => {
       map.set(m.user_id, {
         name: m.profile?.display_name ?? "Friend",
-        initials: m.profile?.initials ?? "··",
+        initials: m.profile?.initials ?? "\u00B7\u00B7",
         color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
         avatarUrl: m.profile?.avatar_url ?? null,
       });
@@ -151,11 +152,87 @@ function CrewPage() {
     return map;
   }, [members.data]);
 
+  // Crew management helpers
+  const memberList = members.data ?? [];
+  const myMember = memberList.find((m) => m.user_id === myId);
+  const isOwner = myMember?.role === "owner";
+
+  const [kickTarget, setKickTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const kickMember = async (userId: string) => {
+    if (!activeCrew) return;
+    setActionBusy(true);
+    try {
+      const { error } = await supabase
+        .from("crew_members")
+        .delete()
+        .eq("crew_id", activeCrew.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["crew-members"] });
+      setKickTarget(null);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to remove member");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const leaveCrew = async () => {
+    if (!activeCrew || !myId) return;
+    setActionBusy(true);
+    try {
+      const { error } = await supabase
+        .from("crew_members")
+        .delete()
+        .eq("crew_id", activeCrew.id)
+        .eq("user_id", myId);
+      if (error) throw error;
+      setActiveCrewId(null);
+      await qc.invalidateQueries({ queryKey: ["my-crews"] });
+      navigate({ to: "/onboarding" });
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to leave crew");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const deleteCrew = async () => {
+    if (!activeCrew) return;
+    setActionBusy(true);
+    try {
+      // Delete all members first (cascades won't trigger from client)
+      const { error: membersError } = await supabase
+        .from("crew_members")
+        .delete()
+        .eq("crew_id", activeCrew.id);
+      if (membersError) throw membersError;
+
+      // Delete the crew itself
+      const { error: crewError } = await supabase
+        .from("crews")
+        .delete()
+        .eq("id", activeCrew.id);
+      if (crewError) throw crewError;
+
+      setActiveCrewId(null);
+      await qc.invalidateQueries({ queryKey: ["my-crews"] });
+      navigate({ to: "/onboarding" });
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to delete crew");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   if (!activeCrew) {
-    return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading…</div>;
+    return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading\u2026</div>;
   }
 
-  const memberList = members.data ?? [];
   const msgs = messages.data ?? [];
 
   return (
@@ -200,17 +277,17 @@ function CrewPage() {
         </p>
         <ProfileEditor />
         <NotificationPrompt />
-        <BroadcastPanel crewId={activeCrew.id} isOwner={memberList.some((m) => m.user_id === myId && m.role === "owner")} />
+        <BroadcastPanel crewId={activeCrew.id} isOwner={isOwner} />
         <PushTestButton />
       </section>
 
-
+      {/* Members with kick option for owners */}
       <section className="mb-6 animate-in">
         <div className="flex gap-4 overflow-x-auto px-6 pb-2 no-scrollbar">
           {memberList.map((m) => (
-            <div key={m.user_id} className="flex flex-col items-center gap-2 shrink-0 w-16">
+            <div key={m.user_id} className="flex flex-col items-center gap-2 shrink-0 w-16 relative group">
               <Avatar
-                initials={m.profile?.initials ?? "··"}
+                initials={m.profile?.initials ?? "\u00B7\u00B7"}
                 color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
                 imageUrl={m.profile?.avatar_url ?? null}
                 size={48}
@@ -222,6 +299,16 @@ function CrewPage() {
               {m.role === "owner" && (
                 <span className="font-mono text-[8px] uppercase text-primary tracking-widest">Owner</span>
               )}
+              {/* Kick button — owners can kick non-owners */}
+              {isOwner && m.user_id !== myId && m.role !== "owner" && (
+                <button
+                  onClick={() => setKickTarget({ userId: m.user_id, name: m.profile?.display_name ?? "this member" })}
+                  className="absolute -top-1 -right-1 size-5 rounded-full bg-out/90 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity active:scale-90"
+                  title="Remove member"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -231,16 +318,16 @@ function CrewPage() {
         <div className="bg-surface rounded-2xl border border-border">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <p className="font-display text-base uppercase tracking-wide">Group chat</p>
-            <span className="font-mono text-[10px] text-going uppercase">● Live</span>
+            <span className="font-mono text-[10px] text-going uppercase">\u25CF Live</span>
           </div>
 
           <div ref={scrollerRef} className="p-3 space-y-3 max-h-[420px] overflow-y-auto">
             {messages.isLoading && (
-              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading…</p>
+              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading\u2026</p>
             )}
             {!messages.isLoading && msgs.length === 0 && (
               <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">
-                No messages yet — say hi 👋
+                No messages yet \u2014 say hi \uD83D\uDC4B
               </p>
             )}
             {msgs.map((m) => (
@@ -258,7 +345,7 @@ function CrewPage() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="Message the crew…"
+              placeholder="Message the crew\u2026"
               className="flex-1 bg-background border border-border rounded-full px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary"
             />
             <button
@@ -271,6 +358,157 @@ function CrewPage() {
           </div>
         </div>
       </section>
+
+      {/* Crew management — Leave / Delete */}
+      <section className="px-4 mt-6 animate-in">
+        <div className="bg-surface rounded-2xl border border-border p-4 space-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Crew settings</p>
+
+          {/* Leave crew (non-owners, or owners if there's another owner) */}
+          {!isOwner && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-border bg-background active:scale-[0.98] transition"
+            >
+              <div className="size-9 rounded-full bg-out/15 text-out grid place-items-center shrink-0">
+                <DoorOpen className="size-4" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold">Leave crew</p>
+                <p className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">You can rejoin later with the invite code</p>
+              </div>
+            </button>
+          )}
+
+          {/* Owner: leave crew */}
+          {isOwner && memberList.length > 1 && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-border bg-background active:scale-[0.98] transition"
+            >
+              <div className="size-9 rounded-full bg-out/15 text-out grid place-items-center shrink-0">
+                <DoorOpen className="size-4" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold">Leave crew</p>
+                <p className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">Leave but keep the crew for others</p>
+              </div>
+            </button>
+          )}
+
+          {/* Owner: delete crew */}
+          {isOwner && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-out/40 bg-out/5 active:scale-[0.98] transition"
+            >
+              <div className="size-9 rounded-full bg-out/15 text-out grid place-items-center shrink-0">
+                <Trash2 className="size-4" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-out">Delete crew</p>
+                <p className="font-mono text-[9px] uppercase text-muted-foreground tracking-widest">Permanently remove the crew and all data</p>
+              </div>
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Kick confirmation modal */}
+      {kickTarget && (
+        <ConfirmModal
+          icon={<UserMinus className="size-5" />}
+          title={`Remove ${kickTarget.name}?`}
+          description="They will no longer be part of this crew. They can rejoin using the invite code."
+          confirmLabel="Remove"
+          busy={actionBusy}
+          onConfirm={() => kickMember(kickTarget.userId)}
+          onCancel={() => setKickTarget(null)}
+        />
+      )}
+
+      {/* Leave confirmation modal */}
+      {showLeaveConfirm && (
+        <ConfirmModal
+          icon={<DoorOpen className="size-5" />}
+          title="Leave this crew?"
+          description="You'll be removed from the crew. You can rejoin later with the invite code."
+          confirmLabel="Leave"
+          busy={actionBusy}
+          onConfirm={leaveCrew}
+          onCancel={() => setShowLeaveConfirm(false)}
+        />
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <ConfirmModal
+          icon={<AlertTriangle className="size-5" />}
+          title="Delete this crew?"
+          description="This will permanently delete the crew, all members, messages, and sessions. This cannot be undone."
+          confirmLabel="Delete forever"
+          destructive
+          busy={actionBusy}
+          onConfirm={deleteCrew}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ========== Confirm Modal ========== */
+function ConfirmModal({
+  icon,
+  title,
+  description,
+  confirmLabel,
+  destructive,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onCancel} />
+      {/* Panel */}
+      <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4 animate-in">
+        <div className={`size-12 rounded-full grid place-items-center mx-auto ${destructive ? 'bg-out/15 text-out' : 'bg-primary/15 text-primary'}`}>
+          {icon}
+        </div>
+        <h2 className="font-display text-xl uppercase text-center leading-tight">{title}</h2>
+        <p className="text-sm text-muted-foreground text-center leading-relaxed">{description}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 py-3 rounded-xl border border-border bg-background font-mono text-[11px] uppercase tracking-wider active:scale-[0.98] transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className={`flex-1 py-3 rounded-xl font-mono text-[11px] uppercase tracking-wider active:scale-[0.98] transition disabled:opacity-50 ${
+              destructive
+                ? 'bg-out text-white'
+                : 'bg-primary text-primary-foreground'
+            }`}
+          >
+            {busy ? "Working\u2026" : confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -290,7 +528,7 @@ function MessageItem({
   return (
     <div className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
       <Avatar
-        initials={author?.initials ?? "··"}
+        initials={author?.initials ?? "\u00B7\u00B7"}
         color={author?.color ?? "hsl(195 70% 55%)"}
         imageUrl={author?.avatarUrl ?? null}
         size={28}
@@ -364,8 +602,8 @@ function PushTestButton() {
       const r = await send();
       if (r.ok) {
         const note = r.invalidAliases
-          ? `Sent ✓ (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
-          : "Sent ✓ — check your device";
+          ? `Sent \u2713 (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
+          : "Sent \u2713 \u2014 check your device";
         setResult(note);
       } else {
         setResult(`Failed (${r.status})`);
@@ -393,7 +631,7 @@ function PushTestButton() {
         disabled={busy}
         className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition"
       >
-        {busy ? "Sending…" : "Test"}
+        {busy ? "Sending\u2026" : "Test"}
       </button>
     </div>
   );
@@ -412,9 +650,9 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
   if (!isOwner) return null;
 
   const presets: Array<{ label: string; title: string; body: string }> = [
-    { label: "Be ready", title: "🔥 Get ready", body: "Next session is coming up — be ready!" },
-    { label: "RSVP now", title: "🗳️ RSVP time", body: "Are you in for the next meeting? Tap to set going / out." },
-    { label: "Heads up", title: "📣 Heads up", body: "Quick update from your crew owner — open the app." },
+    { label: "Be ready", title: "\uD83D\uDD25 Get ready", body: "Next session is coming up \u2014 be ready!" },
+    { label: "RSVP now", title: "\uD83D\uDDF3\uFE0F RSVP time", body: "Are you in for the next meeting? Tap to set going / out." },
+    { label: "Heads up", title: "\uD83D\uDCE3 Heads up", body: "Quick update from your crew owner \u2014 open the app." },
   ];
 
   const submit = async (t: string, b: string) => {
@@ -424,7 +662,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
     try {
       const r = await broadcast({ data: { crewId, title: t, body: b } });
       if (r.ok) {
-        setResult(`Sent ✓ to ${r.targeted ?? 0} member${(r.targeted ?? 0) === 1 ? "" : "s"}`);
+        setResult(`Sent \u2713 to ${r.targeted ?? 0} member${(r.targeted ?? 0) === 1 ? "" : "s"}`);
         setTitle("");
         setBody("");
         setOpen(false);
@@ -482,7 +720,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Message to the crew…"
+            placeholder="Message to the crew\u2026"
             maxLength={240}
             rows={2}
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
@@ -492,7 +730,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
             disabled={busy || !title.trim() || !body.trim()}
             className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest active:scale-95 transition disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Send broadcast"}
+            {busy ? "Sending\u2026" : "Send broadcast"}
           </button>
         </div>
       )}
@@ -593,7 +831,7 @@ function ProfileEditor() {
         ) : (
           <button onClick={() => setEditingName(true)} className="text-left">
             <p className="font-display text-lg uppercase leading-none truncate">{me.display_name}</p>
-            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name · photo</p>
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name \u00B7 photo</p>
           </button>
         )}
       </div>
