@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Pencil, X, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, X, Trash2, Upload, Bookmark, BookmarkPlus } from "lucide-react";
 import {
   SPORTS, sessionTime, startOfWeek, weekDates, rotationFor,
   DAY_NAMES_FULL, MONTH_NAMES, type SportId,
@@ -13,6 +13,10 @@ import {
   setSchedule, clearSchedule, resolvedSportFor, setSessionOverrides,
   type ScheduleSportId, type SessionOverrides, type SessionRow,
 } from "@/lib/sessions";
+import {
+  fetchPlanTemplates, savePlanTemplate, deletePlanTemplate, uploadPlanImage,
+  type PlanTemplate,
+} from "@/lib/plan-templates";
 
 export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
