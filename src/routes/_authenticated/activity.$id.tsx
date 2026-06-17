@@ -140,13 +140,20 @@ function ActivityPage() {
     <div className="pb-28 stagger">
       {/* Hero */}
       <div className="relative">
-        <img
-          src={sport.image}
-          alt={sport.name}
-          width={800}
-          height={1000}
-          className="w-full aspect-[4/5] object-cover opacity-80"
-        />
+        {sport.image ? (
+          <img
+            src={sport.image}
+            alt={sport.name}
+            width={800}
+            height={1000}
+            className="w-full aspect-[4/5] object-cover opacity-80"
+          />
+        ) : (
+          <div
+            className="w-full aspect-[4/5]"
+            style={{ background: `linear-gradient(180deg, color-mix(in srgb, var(--color-${sport.colorVar}) 60%, transparent), var(--color-background))` }}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-background/60" />
         <Link
           to="/"
@@ -158,12 +165,14 @@ function ActivityPage() {
           {dayLabel} · {timeLabel}
         </div>
         <div className="absolute bottom-0 inset-x-0 p-6">
-          <span
-            className="inline-block px-2 py-1 font-mono text-[10px] font-bold uppercase rounded mb-3"
-            style={{ background: `var(--color-${sport.colorVar})`, color: "hsl(220 15% 5%)" }}
-          >
-            {sport.tagline}
-          </span>
+          {sport.tagline && (
+            <span
+              className="inline-block px-2 py-1 font-mono text-[10px] font-bold uppercase rounded mb-3"
+              style={{ background: `var(--color-${sport.colorVar})`, color: "hsl(220 15% 5%)" }}
+            >
+              {sport.tagline}
+            </span>
+          )}
           <h1 className="font-display text-6xl uppercase leading-[0.85] tracking-tight">
             {sport.name}
           </h1>
