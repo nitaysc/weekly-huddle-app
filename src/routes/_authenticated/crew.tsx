@@ -232,7 +232,7 @@ function CrewPage() {
 
   if (!activeCrew) {
     return (
-      <div className="pb-28 stagger animate-in w-full">
+      <div className="pb-28 stagger w-full">
         <header className="px-6 pt-10 pb-5 flex justify-between items-end">
           <div className="space-y-2">
             <Skeleton className="h-3 w-20 rounded-full" />
