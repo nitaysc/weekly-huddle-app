@@ -30,11 +30,10 @@ interface AttendanceJoined {
 }
 
 function startOfWeek(d: Date) {
-  // Monday-based
+  // Sunday-based (Israeli week)
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
-  const dow = (x.getDay() + 6) % 7;
-  x.setDate(x.getDate() - dow);
+  x.setDate(x.getDate() - x.getDay());
   return x;
 }
 
