@@ -78,7 +78,9 @@ export function useActiveCrew() {
   const active = crews.data?.find((c) => c.id === activeId) ?? null;
   return {
     crews: crews.data ?? [],
-    isLoading: crews.isLoading,
+    // Treat both initial loading AND background refetching as "loading"
+    // so the home page doesn't redirect to onboarding during a refetch.
+    isLoading: crews.isLoading || crews.isFetching,
     activeCrew: active,
     activeCrewId: active?.id ?? null,
     setActiveCrewId: setActiveId,
