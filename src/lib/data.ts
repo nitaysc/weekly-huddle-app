@@ -116,26 +116,14 @@ export const SPORTS: Record<SportId, Sport> = {
   },
 };
 
-// Weekly rotation: week A vs week B
-// A: Mon/Thu = Boxing, Tue/Fri = Cali
-// B: Mon/Thu = Basket, Tue/Fri = Volley
-const WEEK_A: Record<number, SportId | null> = {
-  1: "boxing", // Mon
-  2: "cali",   // Tue
-  3: null,
-  4: "boxing", // Thu
-  5: "cali",   // Fri
-  6: null,
-  0: null,
-};
-const WEEK_B: Record<number, SportId | null> = {
-  1: "basket",
-  2: "volley",
-  3: null,
-  4: "basket",
-  5: "volley",
-  6: null,
-  0: null,
+// Weekly rotation (Israeli week: Sun–Thu = active, Fri/Sat = rest)
+// Plus one extra rest day rotated each week among Sun..Thu.
+// Sports fill the 4 remaining active days in order:
+//   A: boxing, cali, boxing, cali
+//   B: basket, volley, basket, volley
+const ROTATION_SPORTS: Record<"A" | "B", SportId[]> = {
+  A: ["boxing", "cali", "boxing", "cali"],
+  B: ["basket", "volley", "basket", "volley"],
 };
 
 // ISO week-number based rotation so it stays consistent across the year.
@@ -151,19 +139,27 @@ export function rotationFor(date: Date): "A" | "B" {
   return isoWeek(date) % 2 === 0 ? "B" : "A";
 }
 
-export function sportFor(date: Date): SportId | null {
-  const rotation = rotationFor(date);
-  const map = rotation === "A" ? WEEK_A : WEEK_B;
-  return map[date.getDay()] ?? null;
+// Which weekday (0=Sun..4=Thu) is the rotating "extra rest" this week.
+export function extraRestDayFor(date: Date): number {
+  return isoWeek(date) % 5;
 }
 
-// Start of week (Monday-aligned)
+export function sportFor(date: Date): SportId | null {
+  const dow = date.getDay(); // 0=Sun..6=Sat
+  if (dow === 5 || dow === 6) return null; // Fri & Sat: weekend rest
+  const extra = extraRestDayFor(date);
+  if (dow === extra) return null; // rotating extra rest day
+  const activeDays = [0, 1, 2, 3, 4].filter((d) => d !== extra);
+  const idx = activeDays.indexOf(dow);
+  if (idx < 0) return null;
+  return ROTATION_SPORTS[rotationFor(date)][idx] ?? null;
+}
+
+// Start of week (Sunday-aligned, Israeli week)
 export function startOfWeek(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = (day + 6) % 7; // days since Monday
-  d.setDate(d.getDate() - diff);
+  d.setDate(d.getDate() - d.getDay()); // Sun=0
   return d;
 }
 
