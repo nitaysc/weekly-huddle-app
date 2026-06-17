@@ -150,6 +150,74 @@ export type Database = {
           },
         ]
       }
+      plan_templates: {
+        Row: {
+          color_var: string
+          created_at: string
+          created_by: string
+          crew_id: string
+          difficulty: string
+          duration: number
+          equipment: string[]
+          id: string
+          image_url: string | null
+          location: string | null
+          name: string
+          notes: string | null
+          start_time: string
+          tagline: string | null
+          updated_at: string
+          warmup: string[]
+          workout: Json
+        }
+        Insert: {
+          color_var?: string
+          created_at?: string
+          created_by: string
+          crew_id: string
+          difficulty?: string
+          duration?: number
+          equipment?: string[]
+          id?: string
+          image_url?: string | null
+          location?: string | null
+          name: string
+          notes?: string | null
+          start_time?: string
+          tagline?: string | null
+          updated_at?: string
+          warmup?: string[]
+          workout?: Json
+        }
+        Update: {
+          color_var?: string
+          created_at?: string
+          created_by?: string
+          crew_id?: string
+          difficulty?: string
+          duration?: number
+          equipment?: string[]
+          id?: string
+          image_url?: string | null
+          location?: string | null
+          name?: string
+          notes?: string | null
+          start_time?: string
+          tagline?: string | null
+          updated_at?: string
+          warmup?: string[]
+          workout?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_templates_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_color: string
