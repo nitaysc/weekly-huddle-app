@@ -139,7 +139,9 @@ export async function createCrew(name: string) {
     const code = generateInviteCode();
     const newCrewId = crypto.randomUUID();
     
-    // Insert into crews first without selecting
+    // Insert into crews — the database trigger "crews_add_owner"
+    // automatically adds the creator as an owner in crew_members,
+    // so we do NOT manually insert into crew_members here.
     const { error: crewError } = await supabase
       .from("crews")
       .insert({ id: newCrewId, name, invite_code: code, created_by: u.user.id });
@@ -150,13 +152,6 @@ export async function createCrew(name: string) {
       }
       throw crewError;
     }
-
-    // Now insert the owner into crew_members
-    const { error: memberError } = await supabase
-      .from("crew_members")
-      .insert({ crew_id: newCrewId, user_id: u.user.id, role: "owner" });
-      
-    if (memberError) throw memberError;
 
     // Return the manually constructed row
     return {
