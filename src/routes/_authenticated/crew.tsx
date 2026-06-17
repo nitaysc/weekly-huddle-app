@@ -17,14 +17,14 @@ const ADMIN_EMAIL = "7nitay7@gmail.com";
 export const Route = createFileRoute("/_authenticated/crew")({
   head: () => ({
     meta: [
-      { title: "Crew \u2014 Strike & Flow" },
+      { title: "Crew — Strike & Flow" },
       { name: "description", content: "Your training crew and group chat." },
     ],
   }),
   component: CrewPage,
 });
 
-const QUICK_EMOJI = ["\uD83D\uDD25", "\uD83D\uDCAA", "\uD83D\uDC40", "\uD83D\uDE02", "\u2764\uFE0F"];
+const QUICK_EMOJI = ["🔥", "💪", "👀", "😂", "❤️"];
 
 function CrewPage() {
   const navigate = useNavigate();
@@ -144,7 +144,7 @@ function CrewPage() {
     (members.data ?? []).forEach((m) => {
       map.set(m.user_id, {
         name: m.profile?.display_name ?? "Friend",
-        initials: m.profile?.initials ?? "\u00B7\u00B7",
+        initials: m.profile?.initials ?? "··",
         color: m.profile?.avatar_color ?? "hsl(45 90% 50%)",
         avatarUrl: m.profile?.avatar_url ?? null,
       });
@@ -230,7 +230,7 @@ function CrewPage() {
   };
 
   if (!activeCrew) {
-    return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading\u2026</div>;
+    return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading…</div>;
   }
 
   const msgs = messages.data ?? [];
@@ -287,7 +287,7 @@ function CrewPage() {
           {memberList.map((m) => (
             <div key={m.user_id} className="flex flex-col items-center gap-2 shrink-0 w-16 relative group">
               <Avatar
-                initials={m.profile?.initials ?? "\u00B7\u00B7"}
+                initials={m.profile?.initials ?? "··"}
                 color={m.profile?.avatar_color ?? "hsl(45 90% 50%)"}
                 imageUrl={m.profile?.avatar_url ?? null}
                 size={48}
@@ -318,16 +318,16 @@ function CrewPage() {
         <div className="bg-surface rounded-2xl border border-border">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <p className="font-display text-base uppercase tracking-wide">Group chat</p>
-            <span className="font-mono text-[10px] text-going uppercase">\u25CF Live</span>
+            <span className="font-mono text-[10px] text-going uppercase">● Live</span>
           </div>
 
           <div ref={scrollerRef} className="p-3 space-y-3 max-h-[420px] overflow-y-auto">
             {messages.isLoading && (
-              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading\u2026</p>
+              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading…</p>
             )}
             {!messages.isLoading && msgs.length === 0 && (
               <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">
-                No messages yet \u2014 say hi \uD83D\uDC4B
+                No messages yet — say hi 👋
               </p>
             )}
             {msgs.map((m) => (
@@ -345,7 +345,7 @@ function CrewPage() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="Message the crew\u2026"
+              placeholder="Message the crew…"
               className="flex-1 bg-background border border-border rounded-full px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary"
             />
             <button
@@ -505,7 +505,7 @@ function ConfirmModal({
                 : 'bg-primary text-primary-foreground'
             }`}
           >
-            {busy ? "Working\u2026" : confirmLabel}
+            {busy ? "Working…" : confirmLabel}
           </button>
         </div>
       </div>
@@ -528,7 +528,7 @@ function MessageItem({
   return (
     <div className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
       <Avatar
-        initials={author?.initials ?? "\u00B7\u00B7"}
+        initials={author?.initials ?? "··"}
         color={author?.color ?? "hsl(195 70% 55%)"}
         imageUrl={author?.avatarUrl ?? null}
         size={28}
@@ -602,8 +602,8 @@ function PushTestButton() {
       const r = await send();
       if (r.ok) {
         const note = r.invalidAliases
-          ? `Sent \u2713 (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
-          : "Sent \u2713 \u2014 check your device";
+          ? `Sent ✓ (${r.recipients ?? 0} device${(r.recipients ?? 0) === 1 ? "" : "s"})`
+          : "Sent ✓ — check your device";
         setResult(note);
       } else {
         setResult(`Failed (${r.status})`);
@@ -631,7 +631,7 @@ function PushTestButton() {
         disabled={busy}
         className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition"
       >
-        {busy ? "Sending\u2026" : "Test"}
+        {busy ? "Sending…" : "Test"}
       </button>
     </div>
   );
@@ -650,9 +650,9 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
   if (!isOwner) return null;
 
   const presets: Array<{ label: string; title: string; body: string }> = [
-    { label: "Be ready", title: "\uD83D\uDD25 Get ready", body: "Next session is coming up \u2014 be ready!" },
-    { label: "RSVP now", title: "\uD83D\uDDF3\uFE0F RSVP time", body: "Are you in for the next meeting? Tap to set going / out." },
-    { label: "Heads up", title: "\uD83D\uDCE3 Heads up", body: "Quick update from your crew owner \u2014 open the app." },
+    { label: "Be ready", title: "🔥 Get ready", body: "Next session is coming up — be ready!" },
+    { label: "RSVP now", title: "🗳️ RSVP time", body: "Are you in for the next meeting? Tap to set going / out." },
+    { label: "Heads up", title: "📣 Heads up", body: "Quick update from your crew owner — open the app." },
   ];
 
   const submit = async (t: string, b: string) => {
@@ -662,7 +662,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
     try {
       const r = await broadcast({ data: { crewId, title: t, body: b } });
       if (r.ok) {
-        setResult(`Sent \u2713 to ${r.targeted ?? 0} member${(r.targeted ?? 0) === 1 ? "" : "s"}`);
+        setResult(`Sent ✓ to ${r.targeted ?? 0} member${(r.targeted ?? 0) === 1 ? "" : "s"}`);
         setTitle("");
         setBody("");
         setOpen(false);
@@ -720,7 +720,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Message to the crew\u2026"
+            placeholder="Message to the crew…"
             maxLength={240}
             rows={2}
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
@@ -730,7 +730,7 @@ function BroadcastPanel({ crewId, isOwner }: { crewId: string; isOwner: boolean 
             disabled={busy || !title.trim() || !body.trim()}
             className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-widest active:scale-95 transition disabled:opacity-50"
           >
-            {busy ? "Sending\u2026" : "Send broadcast"}
+            {busy ? "Sending…" : "Send broadcast"}
           </button>
         </div>
       )}
@@ -831,7 +831,7 @@ function ProfileEditor() {
         ) : (
           <button onClick={() => setEditingName(true)} className="text-left">
             <p className="font-display text-lg uppercase leading-none truncate">{me.display_name}</p>
-            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name \u00B7 photo</p>
+            <p className="font-mono text-[9px] uppercase text-primary tracking-widest mt-1">Tap to edit name · photo</p>
           </button>
         )}
       </div>
