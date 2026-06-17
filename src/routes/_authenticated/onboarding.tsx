@@ -30,7 +30,10 @@ function OnboardingPage() {
         ? await createCrew(name.trim() || "My Crew")
         : await joinCrewByCode(code);
       setActive(crew.id);
+      // Wait for the crews query to fully refetch before navigating,
+      // so the home page sees the new crew and doesn't redirect back.
       await qc.invalidateQueries({ queryKey: ["my-crews"] });
+      await qc.refetchQueries({ queryKey: ["my-crews"] });
       navigate({ to: "/" });
     } catch (e: any) {
       setErr(e?.message ?? "Something went wrong");
