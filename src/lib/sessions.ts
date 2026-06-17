@@ -246,10 +246,34 @@ export function effectiveSessionFor(
 ): EffectiveSession | null {
   const { sportId, row } = resolvedSportFor(date, sessions);
   if (!sportId || sportId === "rest") return null;
-  const base = SPORTS[sportId as SportId];
-  if (!base) return null;
   const ov = (row?.overrides ?? {}) as SessionOverrides;
   const start = row?.starts_at ? new Date(row.starts_at) : sessionTime(date);
+
+  if (sportId === "custom") {
+    return {
+      date,
+      start,
+      row,
+      sportId: "custom" as unknown as SportId,
+      baseSport: null as unknown as Sport,
+      name: ov.name ?? "Custom session",
+      tagline: ov.tagline ?? "",
+      location: ov.location ?? "",
+      duration: ov.duration ?? 60,
+      difficulty: ov.difficulty ?? "Medium",
+      equipment: ov.equipment ?? [],
+      warmup: ov.warmup ?? [],
+      workout: ov.workout ?? [],
+      description: ov.description ?? "",
+      image: ov.image ?? "",
+      colorVar: ov.colorVar ?? "primary",
+      shortName: ov.name ?? "Custom",
+      notes: ov.notes,
+    };
+  }
+
+  const base = SPORTS[sportId as SportId];
+  if (!base) return null;
   return {
     date,
     start,
