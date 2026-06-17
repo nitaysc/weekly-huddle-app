@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Copy, Check, Send, LogOut, Camera, Loader2, BellRing, Megaphone, UserMinus, Trash2, DoorOpen, X, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { useActiveCrew, useCrewMembers, useMyProfile, useSignOut, useActiveCrewId } from "@/hooks/use-crew";
 import { supabase } from "@/integrations/supabase/client";
@@ -230,7 +231,32 @@ function CrewPage() {
   };
 
   if (!activeCrew) {
-    return <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">Loading…</div>;
+    return (
+      <div className="pb-28 stagger animate-in w-full">
+        <header className="px-6 pt-10 pb-5 flex justify-between items-end">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20 rounded-full" />
+            <Skeleton className="h-8 w-40 rounded-full" />
+          </div>
+          <Skeleton className="size-10 rounded-full" />
+        </header>
+        <section className="px-4 mb-6">
+          <Skeleton className="w-full h-24 rounded-2xl" />
+          <Skeleton className="w-full h-20 rounded-2xl mt-4" />
+        </section>
+        <section className="px-6 mb-6">
+          <div className="flex gap-4">
+            <Skeleton className="size-12 rounded-full" />
+            <Skeleton className="size-12 rounded-full" />
+            <Skeleton className="size-12 rounded-full" />
+            <Skeleton className="size-12 rounded-full" />
+          </div>
+        </section>
+        <section className="px-4">
+          <Skeleton className="w-full h-64 rounded-2xl" />
+        </section>
+      </div>
+    );
   }
 
   const msgs = messages.data ?? [];
@@ -323,7 +349,29 @@ function CrewPage() {
 
           <div ref={scrollerRef} className="p-3 space-y-3 max-h-[420px] overflow-y-auto">
             {messages.isLoading && (
-              <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">Loading…</p>
+              <div className="space-y-4 py-2">
+                <div className="flex gap-2">
+                  <Skeleton className="size-7 rounded-full shrink-0" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-2 w-16 rounded-full" />
+                    <Skeleton className="h-8 w-40 rounded-2xl rounded-bl-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-row-reverse">
+                  <Skeleton className="size-7 rounded-full shrink-0" />
+                  <div className="space-y-1 flex flex-col items-end">
+                    <Skeleton className="h-2 w-16 rounded-full" />
+                    <Skeleton className="h-8 w-32 rounded-2xl rounded-br-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="size-7 rounded-full shrink-0" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-2 w-20 rounded-full" />
+                    <Skeleton className="h-8 w-48 rounded-2xl rounded-bl-sm" />
+                  </div>
+                </div>
+              </div>
             )}
             {!messages.isLoading && msgs.length === 0 && (
               <p className="text-center font-mono text-[10px] uppercase text-muted-foreground py-6">
