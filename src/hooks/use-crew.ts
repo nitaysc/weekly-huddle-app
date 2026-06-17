@@ -133,17 +133,39 @@ export function generateInviteCode(): string {
 export async function createCrew(name: string) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Not signed in");
+  
   // try a few invite codes until unique
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateInviteCode();
-    const { data, error } = await supabase.rpc("create_crew", {
-      _name: name,
-      _invite_code: code,
-    });
-    if (!error) return data as CrewRow;
-    const isDuplicateInviteCode =
-      error.code === "23505" || String(error.message).toLowerCase().includes("duplicate");
-    if (!isDuplicateInviteCode) throw error;
+    const newCrewId = crypto.randomUUID();
+    
+    // Insert into crews first without selecting
+    const { error: crewError } = await supabase
+      .from("crews")
+      .insert({ id: newCrewId, name, invite_code: code, created_by: u.user.id });
+      
+    if (crewError) {
+      if (crewError.code === "23505" || String(crewError.message).toLowerCase().includes("duplicate")) {
+        continue;
+      }
+      throw crewError;
+    }
+
+    // Now insert the owner into crew_members
+    const { error: memberError } = await supabase
+      .from("crew_members")
+      .insert({ crew_id: newCrewId, user_id: u.user.id, role: "owner" });
+      
+    if (memberError) throw memberError;
+
+    // Return the manually constructed row
+    return {
+      id: newCrewId,
+      name,
+      invite_code: code,
+      created_by: u.user.id,
+      created_at: new Date().toISOString()
+    } as CrewRow;
   }
   throw new Error("Could not generate invite code");
 }
