@@ -103,8 +103,14 @@ export function identifyOneSignalUser(userId: string, crewId?: string | null) {
   lastIdentifiedUser = { userId, crewId };
 
   // Median native OneSignal plugin: login() sets the externalId used by server sends.
+  // We also (re)grant consent and call register() on every identify so users who
+  // initially denied the OS prompt but later enabled notifications in Settings
+  // get a real push subscription attached to their externalId. register() is
+  // idempotent for users who are already subscribed.
   if (isMedianApp()) {
     runMedianOneSignal((os) => {
+      try { os?.userPrivacyConsent?.grant?.(); } catch {}
+      try { os?.register?.(); } catch {}
       os?.login?.(userId);
       os?.externalUserId?.set?.({ externalId: userId });
       if (crewId) os?.tags?.setTags?.({ tags: { crew_id: crewId } });
