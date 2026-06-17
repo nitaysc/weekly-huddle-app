@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sessionTime, sportFor, SPORTS, type Sport, type SportId } from "@/lib/data";
 
-export type ScheduleSportId = SportId | "rest";
+export type ScheduleSportId = SportId | "rest" | "custom";
 
 export interface SessionOverrides {
   name?: string;
@@ -14,6 +14,12 @@ export interface SessionOverrides {
   workout?: Array<{ title: string; detail: string }>;
   notes?: string;
   startTime?: string; // "HH:MM"
+  /** Custom-only: image URL for the plan card / hero */
+  image?: string;
+  /** Custom-only: color token (boxing|cali|basket|volley) */
+  colorVar?: string;
+  /** Custom-only: short description shown on activity page */
+  description?: string;
 }
 
 export interface SessionRow {
@@ -240,10 +246,34 @@ export function effectiveSessionFor(
 ): EffectiveSession | null {
   const { sportId, row } = resolvedSportFor(date, sessions);
   if (!sportId || sportId === "rest") return null;
-  const base = SPORTS[sportId as SportId];
-  if (!base) return null;
   const ov = (row?.overrides ?? {}) as SessionOverrides;
   const start = row?.starts_at ? new Date(row.starts_at) : sessionTime(date);
+
+  if (sportId === "custom") {
+    return {
+      date,
+      start,
+      row,
+      sportId: "custom" as unknown as SportId,
+      baseSport: null as unknown as Sport,
+      name: ov.name ?? "Custom session",
+      tagline: ov.tagline ?? "",
+      location: ov.location ?? "",
+      duration: ov.duration ?? 60,
+      difficulty: ov.difficulty ?? "Medium",
+      equipment: ov.equipment ?? [],
+      warmup: ov.warmup ?? [],
+      workout: ov.workout ?? [],
+      description: ov.description ?? "",
+      image: ov.image ?? "",
+      colorVar: ov.colorVar ?? "primary",
+      shortName: ov.name ?? "Custom",
+      notes: ov.notes,
+    };
+  }
+
+  const base = SPORTS[sportId as SportId];
+  if (!base) return null;
   return {
     date,
     start,

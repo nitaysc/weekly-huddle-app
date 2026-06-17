@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Pencil, X, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, X, Trash2, Upload, Bookmark, BookmarkPlus } from "lucide-react";
 import {
   SPORTS, sessionTime, startOfWeek, weekDates, rotationFor,
   DAY_NAMES_FULL, MONTH_NAMES, type SportId,
@@ -13,6 +13,10 @@ import {
   setSchedule, clearSchedule, resolvedSportFor, setSessionOverrides,
   type ScheduleSportId, type SessionOverrides, type SessionRow,
 } from "@/lib/sessions";
+import {
+  fetchPlanTemplates, savePlanTemplate, deletePlanTemplate, uploadPlanImage,
+  type PlanTemplate,
+} from "@/lib/plan-templates";
 
 export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
@@ -100,13 +104,17 @@ function PlanPage() {
       <div className="px-4 space-y-3 animate-in">
         {days.map((d) => {
           const { sportId, row } = resolvedSportFor(d, sessions.data);
-          const s = sportId && sportId !== "rest" ? SPORTS[sportId as SportId] : null;
+          const isCustom = sportId === "custom";
+          const s = sportId && sportId !== "rest" && !isCustom ? SPORTS[sportId as SportId] : null;
+          const hasContent = !!s || isCustom;
           const isToday = d.toDateString() === new Date().toDateString();
           const sessionRow = row;
           const ov = (row?.overrides ?? {}) as SessionOverrides;
-          const displayName = ov.name ?? s?.name;
-          const displayLocation = ov.location ?? s?.location;
-          const displayDuration = ov.duration ?? s?.duration;
+          const displayName = ov.name ?? s?.name ?? "Custom session";
+          const displayLocation = ov.location ?? s?.location ?? "";
+          const displayDuration = ov.duration ?? s?.duration ?? 60;
+          const displayImage = isCustom ? (ov.image ?? "") : (s?.image ?? "");
+          const displayColorVar = isCustom ? (ov.colorVar ?? "primary") : (s?.colorVar ?? "primary");
           const displayStart = row?.starts_at ? new Date(row.starts_at) : sessionTime(d);
           const startLabel = `${displayStart.getHours().toString().padStart(2, "0")}:${displayStart.getMinutes().toString().padStart(2, "0")}`;
           return (
@@ -127,22 +135,31 @@ function PlanPage() {
               )}
               {row?.is_override && (
                 <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 font-mono text-[8px] uppercase font-bold tracking-wider rounded bg-primary text-primary-foreground">
-                  Custom
+                  {isCustom ? "Custom plan" : "Custom"}
                 </span>
               )}
-              {s ? (
+              {hasContent ? (
                 <Link
                   to="/activity/$id"
-                  params={{ id: s.id }}
+                  params={{ id: isCustom ? "custom" : (s!.id as string) }}
                   search={{ date: toDateKey(d) }}
                   className="flex gap-4 p-3 active:scale-[0.99] transition-transform"
                 >
-                  <img
-                    src={s.image}
-                    alt={displayName ?? s.name}
-                    loading="lazy"
-                    className="w-20 h-20 rounded-xl object-cover shrink-0"
-                  />
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt={displayName}
+                      loading="lazy"
+                      className="w-20 h-20 rounded-xl object-cover shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-20 h-20 rounded-xl shrink-0 grid place-items-center font-display text-xl uppercase"
+                      style={{ background: `color-mix(in srgb, var(--color-${displayColorVar}) 25%, var(--color-surface))` }}
+                    >
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest">
@@ -158,10 +175,10 @@ function PlanPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <span
                         className="size-2 rounded-full"
-                        style={{ background: `var(--color-${s.colorVar})` }}
+                        style={{ background: `var(--color-${displayColorVar})` }}
                       />
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {startLabel} · {displayDuration} min · {displayLocation}
+                        {startLabel} · {displayDuration} min{displayLocation ? ` · ${displayLocation}` : ""}
                       </p>
                     </div>
                     {sessionRow ? (
@@ -203,16 +220,17 @@ function PlanPage() {
         </div>
       </div>
 
-      {editing && isOwner && (() => {
+      {editing && isOwner && activeCrew && (() => {
         const resolved = resolvedSportFor(editing, sessions.data);
         return (
           <EditDaySheet
             date={editing}
             row={resolved.row}
             currentSport={resolved.sportId}
+            crewId={activeCrew.id}
             onClose={() => setEditing(null)}
             onSave={async (sport, overrides) => {
-              await setSessionOverrides(activeCrew!.id, editing, sport, overrides);
+              await setSessionOverrides(activeCrew.id, editing, sport, overrides);
               invalidateAll();
               setEditing(null);
             }}
@@ -233,39 +251,41 @@ function PlanPage() {
 }
 
 function EditDaySheet({
-  date, row, currentSport, onClose, onSave, onQuickPick, onReset, busy,
+  date, row, currentSport, crewId, onClose, onSave, onQuickPick, onReset, busy,
 }: {
   date: Date;
   row: SessionRow | null;
   currentSport: ScheduleSportId | null;
+  crewId: string;
   onClose: () => void;
   onSave: (sport: ScheduleSportId, overrides: SessionOverrides) => void;
   onQuickPick: (sport: ScheduleSportId) => void;
   onReset: () => void;
   busy: boolean;
 }) {
+  const qc = useQueryClient();
   const [sport, setSport] = useState<ScheduleSportId>(currentSport ?? "rest");
-  const [advanced, setAdvanced] = useState(false);
+  const [advanced, setAdvanced] = useState<boolean>(currentSport === "custom");
   const isOverride = !!row?.is_override;
 
-  // Defaults: existing overrides → fall back to SPORTS template → empty
-  const base = sport !== "rest" ? SPORTS[sport as SportId] : null;
+  const base = sport !== "rest" && sport !== "custom" ? SPORTS[sport as SportId] : null;
   const ov = (row?.overrides ?? {}) as SessionOverrides;
   const [form, setForm] = useState<SessionOverrides>({
     name: ov.name ?? base?.name,
     tagline: ov.tagline ?? base?.tagline,
     location: ov.location ?? base?.location,
-    duration: ov.duration ?? base?.duration,
-    difficulty: ov.difficulty ?? base?.difficulty,
+    duration: ov.duration ?? base?.duration ?? 60,
+    difficulty: ov.difficulty ?? base?.difficulty ?? "Medium",
     equipment: ov.equipment ?? base?.equipment ?? [],
     warmup: ov.warmup ?? base?.warmup ?? [],
     workout: ov.workout ?? base?.workout ?? [],
     notes: ov.notes ?? "",
     startTime: ov.startTime ?? "18:30",
+    image: ov.image ?? "",
+    colorVar: ov.colorVar ?? "boxing",
+    description: ov.description ?? "",
   });
 
-  // Raw multi-line text buffers so users can press Enter to add new rows.
-  // We only parse these into arrays at save time.
   const [equipmentText, setEquipmentText] = useState<string>(
     (ov.equipment ?? base?.equipment ?? []).join("\n"),
   );
@@ -277,6 +297,16 @@ function EditDaySheet({
       .map((w) => `${w.title} | ${w.detail}`)
       .join("\n"),
   );
+
+  const [uploading, setUploading] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const templatesQ = useQuery({
+    queryKey: ["plan-templates", crewId],
+    queryFn: () => fetchPlanTemplates(crewId),
+  });
 
   const parseList = (text: string) =>
     text.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -292,9 +322,22 @@ function EditDaySheet({
       })
       .filter(Boolean) as Array<{ title: string; detail: string }>;
 
-  // When sport changes, refresh defaults from the new sport template
   const switchSport = (next: ScheduleSportId) => {
     setSport(next);
+    if (next === "custom") {
+      setAdvanced(true);
+      // Keep current form unless empty: seed with empty values
+      setForm((f) => ({
+        ...f,
+        name: f.name && f.name !== base?.name ? f.name : "",
+        tagline: f.tagline && f.tagline !== base?.tagline ? f.tagline : "",
+        location: f.location && f.location !== base?.location ? f.location : "",
+        image: f.image ?? "",
+        colorVar: f.colorVar ?? "boxing",
+        description: f.description ?? "",
+      }));
+      return;
+    }
     const b = next !== "rest" ? SPORTS[next as SportId] : null;
     setForm((f) => ({
       ...f,
@@ -309,14 +352,98 @@ function EditDaySheet({
     setWorkoutText((b?.workout ?? []).map((w) => `${w.title} | ${w.detail}`).join("\n"));
   };
 
+  const applyTemplate = (t: PlanTemplate) => {
+    setSport("custom");
+    setAdvanced(true);
+    setShowTemplates(false);
+    setForm({
+      name: t.name,
+      tagline: t.tagline ?? "",
+      location: t.location ?? "",
+      duration: t.duration,
+      difficulty: t.difficulty,
+      equipment: t.equipment,
+      warmup: t.warmup,
+      workout: t.workout,
+      notes: "",
+      startTime: t.start_time,
+      image: t.image_url ?? "",
+      colorVar: t.color_var,
+      description: t.notes ?? "",
+    });
+    setEquipmentText(t.equipment.join("\n"));
+    setWarmupText(t.warmup.join("\n"));
+    setWorkoutText(t.workout.map((w) => `${w.title} | ${w.detail}`).join("\n"));
+  };
+
+  const handleImage = async (file: File) => {
+    setUploading(true);
+    try {
+      const url = await uploadPlanImage(file);
+      setForm((f) => ({ ...f, image: url }));
+    } catch (e) {
+      console.error(e);
+      alert("Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const buildOverrides = (): SessionOverrides => ({
+    ...form,
+    equipment: parseList(equipmentText),
+    warmup: parseList(warmupText),
+    workout: parseWorkout(workoutText),
+  });
+
+  const handleSaveTemplate = async () => {
+    if (!form.name?.trim()) {
+      alert("Give your plan a name first");
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      await savePlanTemplate({
+        crew_id: crewId,
+        name: form.name.trim(),
+        tagline: form.tagline ?? null,
+        image_url: form.image ?? null,
+        location: form.location ?? null,
+        duration: form.duration ?? 60,
+        difficulty: (form.difficulty ?? "Medium") as "Easy" | "Medium" | "Hard",
+        equipment: parseList(equipmentText),
+        warmup: parseList(warmupText),
+        workout: parseWorkout(workoutText),
+        notes: form.description ?? null,
+        color_var: form.colorVar ?? "boxing",
+        start_time: form.startTime ?? "18:30",
+      });
+      qc.invalidateQueries({ queryKey: ["plan-templates", crewId] });
+    } catch (e) {
+      console.error(e);
+      alert("Could not save template");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    if (!confirm("Delete this saved plan?")) return;
+    await deletePlanTemplate(id);
+    qc.invalidateQueries({ queryKey: ["plan-templates", crewId] });
+  };
 
   const choices: Array<{ id: ScheduleSportId; label: string; color?: string }> = [
-    { id: "boxing", label: "Boxing", color: "var(--color-boxing)" },
+    { id: "boxing", label: "Box", color: "var(--color-boxing)" },
     { id: "cali", label: "Cali", color: "var(--color-cali)" },
-    { id: "basket", label: "Basket", color: "var(--color-basket)" },
+    { id: "basket", label: "Ball", color: "var(--color-basket)" },
     { id: "volley", label: "Volley", color: "var(--color-volley)" },
+    { id: "custom", label: "Custom", color: "var(--color-primary)" },
     { id: "rest", label: "Rest" },
   ];
+
+  const colorChoices = ["boxing", "cali", "basket", "volley"];
+  const templates = templatesQ.data ?? [];
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center px-0 pb-24" onClick={onClose}>
@@ -339,9 +466,9 @@ function EditDaySheet({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-4">
-          {/* Sport picker — always visible */}
+          {/* Sport picker */}
           <p className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest mb-2">Sport</p>
-          <div className="grid grid-cols-5 gap-1.5 mb-4">
+          <div className="grid grid-cols-6 gap-1.5 mb-3">
             {choices.map((c) => {
               const active = sport === c.id;
               return (
@@ -349,7 +476,7 @@ function EditDaySheet({
                   key={c.id}
                   onClick={() => switchSport(c.id)}
                   disabled={busy}
-                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border font-mono text-[10px] uppercase font-bold tracking-wider disabled:opacity-50 transition ${
+                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border font-mono text-[9px] uppercase font-bold tracking-wider disabled:opacity-50 transition ${
                     active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background/40"
                   }`}
                 >
@@ -362,109 +489,240 @@ function EditDaySheet({
             })}
           </div>
 
+          {/* Saved plans (templates) */}
           {sport !== "rest" && (
-            <>
+            <div className="mb-4">
               <button
-                onClick={() => setAdvanced((v) => !v)}
-                className="w-full flex items-center justify-between py-2 mb-2 text-left"
+                onClick={() => setShowTemplates((v) => !v)}
+                className="w-full flex items-center justify-between py-2 text-left"
               >
-                <span className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest">
-                  Customize details
+                <span className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                  <Bookmark className="size-3" /> Saved plans ({templates.length})
                 </span>
-                <span className="font-mono text-[10px] text-primary">{advanced ? "Hide" : "Show"}</span>
+                <span className="font-mono text-[10px] text-primary">{showTemplates ? "Hide" : "Show"}</span>
               </button>
-
-              {advanced && (
-                <div className="space-y-3 mb-4">
-                  <Row label="Name">
-                    <input
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                      value={form.name ?? ""}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    />
-                  </Row>
-                  <Row label="Tagline">
-                    <input
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                      value={form.tagline ?? ""}
-                      onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-                    />
-                  </Row>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Row label="Start time">
-                      <input
-                        type="time"
-                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                        value={form.startTime ?? "18:30"}
-                        onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                      />
-                    </Row>
-                    <Row label="Duration (min)">
-                      <input
-                        type="number"
-                        min={5}
-                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                        value={form.duration ?? 60}
-                        onChange={(e) => setForm({ ...form, duration: parseInt(e.target.value || "0", 10) })}
-                      />
-                    </Row>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Row label="Level">
-                      <select
-                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                        value={form.difficulty ?? "Medium"}
-                        onChange={(e) => setForm({ ...form, difficulty: e.target.value as any })}
+              {showTemplates && (
+                <div className="space-y-1.5 mt-2">
+                  {templates.length === 0 && (
+                    <p className="font-mono text-[10px] text-muted-foreground/70 px-1 py-2">
+                      No saved plans yet. Build one below and tap "Save as plan".
+                    </p>
+                  )}
+                  {templates.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2 p-2 rounded-xl border border-border bg-background/40">
+                      {t.image_url ? (
+                        <img src={t.image_url} alt={t.name} className="size-10 rounded-lg object-cover shrink-0" />
+                      ) : (
+                        <div className="size-10 rounded-lg shrink-0" style={{ background: `var(--color-${t.color_var})` }} />
+                      )}
+                      <button
+                        onClick={() => applyTemplate(t)}
+                        className="flex-1 text-left min-w-0"
                       >
-                        <option value="Easy">Easy</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Hard">Hard</option>
-                      </select>
-                    </Row>
-                    <Row label="Place">
-                      <input
-                        className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                        value={form.location ?? ""}
-                        onChange={(e) => setForm({ ...form, location: e.target.value })}
-                      />
-                    </Row>
-                  </div>
-                  <Row label="Equipment (one per line)">
-                    <textarea
-                      rows={4}
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={equipmentText}
-                      onChange={(e) => setEquipmentText(e.target.value)}
-                    />
-                  </Row>
-                  <Row label="Warm-up (one per line)">
-                    <textarea
-                      rows={4}
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={warmupText}
-                      onChange={(e) => setWarmupText(e.target.value)}
-                    />
-                  </Row>
-                  <Row label="Session plan (one per line: Title | Detail)">
-                    <textarea
-                      rows={6}
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
-                      value={workoutText}
-                      onChange={(e) => setWorkoutText(e.target.value)}
-                    />
-                  </Row>
-                  <Row label="Notes for the crew">
-                    <textarea
-                      rows={2}
-                      className="w-full bg-background border border-border rounded-lg p-2 text-sm"
-                      value={form.notes ?? ""}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </Row>
-
+                        <p className="text-sm font-medium truncate">{t.name}</p>
+                        {t.tagline && (
+                          <p className="text-[10px] text-muted-foreground truncate">{t.tagline}</p>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(t.id)}
+                        className="size-8 rounded-lg border border-border grid place-items-center text-muted-foreground"
+                        aria-label="Delete plan"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
-            </>
+            </div>
+          )}
+
+          {sport !== "rest" && sport !== "custom" && (
+            <button
+              onClick={() => setAdvanced((v) => !v)}
+              className="w-full flex items-center justify-between py-2 mb-2 text-left"
+            >
+              <span className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest">
+                Customize details
+              </span>
+              <span className="font-mono text-[10px] text-primary">{advanced ? "Hide" : "Show"}</span>
+            </button>
+          )}
+
+          {sport !== "rest" && (advanced || sport === "custom") && (
+            <div className="space-y-3 mb-4">
+              {sport === "custom" && (
+                <>
+                  <Row label="Cover image">
+                    <div className="flex items-center gap-3">
+                      {form.image ? (
+                        <img src={form.image} alt="" className="size-16 rounded-xl object-cover border border-border" />
+                      ) : (
+                        <div
+                          className="size-16 rounded-xl border border-dashed border-border grid place-items-center"
+                          style={{ background: `color-mix(in srgb, var(--color-${form.colorVar ?? "boxing"}) 20%, transparent)` }}
+                        >
+                          <Upload className="size-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleImage(f);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="px-3 py-2 rounded-lg border border-border font-mono text-[10px] uppercase tracking-wider disabled:opacity-50"
+                      >
+                        {uploading ? "Uploading…" : form.image ? "Change" : "Upload"}
+                      </button>
+                      {form.image && (
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, image: "" })}
+                          className="size-9 rounded-lg border border-border grid place-items-center text-muted-foreground"
+                          aria-label="Remove image"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </Row>
+                  <Row label="Accent color">
+                    <div className="flex gap-2">
+                      {colorChoices.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setForm({ ...form, colorVar: c })}
+                          className={`size-8 rounded-full border-2 transition ${
+                            form.colorVar === c ? "border-foreground" : "border-transparent"
+                          }`}
+                          style={{ background: `var(--color-${c})` }}
+                          aria-label={c}
+                        />
+                      ))}
+                    </div>
+                  </Row>
+                </>
+              )}
+              <Row label="Name">
+                <input
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                  placeholder={sport === "custom" ? "e.g. Yoga flow" : ""}
+                  value={form.name ?? ""}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </Row>
+              <Row label={sport === "custom" ? "Bio / tagline" : "Tagline"}>
+                <input
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                  placeholder={sport === "custom" ? "Short pitch for the crew" : ""}
+                  value={form.tagline ?? ""}
+                  onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                />
+              </Row>
+              {sport === "custom" && (
+                <Row label="Description">
+                  <textarea
+                    rows={3}
+                    className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                    placeholder="What is this session about?"
+                    value={form.description ?? ""}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                </Row>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Row label="Start time">
+                  <input
+                    type="time"
+                    className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                    value={form.startTime ?? "18:30"}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                  />
+                </Row>
+                <Row label="Duration (min)">
+                  <input
+                    type="number"
+                    min={5}
+                    className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                    value={form.duration ?? 60}
+                    onChange={(e) => setForm({ ...form, duration: parseInt(e.target.value || "0", 10) })}
+                  />
+                </Row>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Row label="Level">
+                  <select
+                    className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                    value={form.difficulty ?? "Medium"}
+                    onChange={(e) => setForm({ ...form, difficulty: e.target.value as any })}
+                  >
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                  </select>
+                </Row>
+                <Row label="Place">
+                  <input
+                    className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                    value={form.location ?? ""}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  />
+                </Row>
+              </div>
+              <Row label="Equipment (one per line)">
+                <textarea
+                  rows={3}
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                  value={equipmentText}
+                  onChange={(e) => setEquipmentText(e.target.value)}
+                />
+              </Row>
+              <Row label="Warm-up (one per line)">
+                <textarea
+                  rows={3}
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                  value={warmupText}
+                  onChange={(e) => setWarmupText(e.target.value)}
+                />
+              </Row>
+              <Row label="Session plan (one per line: Title | Detail)">
+                <textarea
+                  rows={5}
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm font-mono"
+                  value={workoutText}
+                  onChange={(e) => setWorkoutText(e.target.value)}
+                />
+              </Row>
+              <Row label="Notes for the crew">
+                <textarea
+                  rows={2}
+                  className="w-full bg-background border border-border rounded-lg p-2 text-sm"
+                  value={form.notes ?? ""}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </Row>
+
+              <button
+                type="button"
+                onClick={handleSaveTemplate}
+                disabled={savingTemplate || busy}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-primary/40 bg-primary/5 text-primary font-mono text-[10px] uppercase tracking-wider disabled:opacity-50"
+              >
+                <BookmarkPlus className="size-3.5" />
+                {savingTemplate ? "Saving plan…" : "Save as plan for later"}
+              </button>
+            </div>
           )}
 
           {isOverride && (
@@ -482,26 +740,29 @@ function EditDaySheet({
           className="shrink-0 p-4 border-t border-border bg-surface flex gap-2"
           style={{ paddingBottom: "calc(1rem + max(env(safe-area-inset-bottom), 12px))" }}
         >
-          {!advanced || sport === "rest" ? (
+          {sport === "rest" ? (
+            <button
+              onClick={() => onQuickPick("rest")}
+              disabled={busy}
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
+            >
+              Set as rest day
+            </button>
+          ) : sport === "custom" || advanced ? (
+            <button
+              onClick={() => onSave(sport, buildOverrides())}
+              disabled={busy || (sport === "custom" && !form.name?.trim())}
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
+            >
+              Save changes
+            </button>
+          ) : (
             <button
               onClick={() => onQuickPick(sport)}
               disabled={busy}
               className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
             >
-              {sport === "rest" ? "Set as rest day" : `Set ${choices.find(c => c.id === sport)?.label}`}
-            </button>
-          ) : (
-            <button
-              onClick={() => onSave(sport, {
-                ...form,
-                equipment: parseList(equipmentText),
-                warmup: parseList(warmupText),
-                workout: parseWorkout(workoutText),
-              })}
-              disabled={busy}
-              className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 font-mono text-[11px] uppercase font-bold tracking-wider disabled:opacity-50"
-            >
-              Save changes
+              {`Set ${choices.find(c => c.id === sport)?.label}`}
             </button>
           )}
         </div>
@@ -509,6 +770,7 @@ function EditDaySheet({
     </div>
   );
 }
+
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (

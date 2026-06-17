@@ -17,6 +17,9 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
     date: typeof search.date === "string" ? search.date : undefined,
   }),
   head: ({ params }) => {
+    if (params.id === "custom") {
+      return { meta: [{ title: "Custom session — Strike & Flow" }] };
+    }
     const s = SPORTS[params.id as SportId];
     return {
       meta: [
@@ -27,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
     };
   },
   loader: ({ params }) => {
+    if (params.id === "custom") return null;
     const s = SPORTS[params.id as SportId];
     if (!s) throw notFound();
     return null;
@@ -48,7 +52,8 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
 function ActivityPage() {
   const { id } = Route.useParams();
   const { date: dateParam } = Route.useSearch();
-  const baseSport = SPORTS[id as SportId];
+  const isCustom = id === "custom";
+  const baseSport = isCustom ? null : SPORTS[id as SportId];
   const { activeCrew } = useActiveCrew();
   const profile = useMyProfile();
   const members = useCrewMembers(activeCrew?.id);
@@ -59,7 +64,7 @@ function ActivityPage() {
   // next rotation day for this sport.
   const target = dateParam
     ? parseDateKey(dateParam)
-    : (findNextDateForSport(id as SportId) ?? new Date());
+    : (isCustom ? new Date() : (findNextDateForSport(id as SportId) ?? new Date()));
 
   const sessionQ = useQuery({
     queryKey: ["session-for", activeCrew?.id, toDateKey(target)],
@@ -69,18 +74,39 @@ function ActivityPage() {
 
 
   // Merge per-session overrides on top of the default sport definition
-  const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & { startTime?: string };
-  const sport = {
-    ...baseSport,
-    ...(ov.name ? { name: ov.name } : {}),
-    ...(ov.tagline ? { tagline: ov.tagline } : {}),
-    ...(ov.location ? { location: ov.location } : {}),
-    ...(ov.duration ? { duration: ov.duration } : {}),
-    ...(ov.difficulty ? { difficulty: ov.difficulty } : {}),
-    ...(ov.equipment && (ov.equipment as string[]).length ? { equipment: ov.equipment } : {}),
-    ...(ov.warmup && (ov.warmup as string[]).length ? { warmup: ov.warmup } : {}),
-    ...(ov.workout && (ov.workout as Array<{title: string; detail: string}>).length ? { workout: ov.workout } : {}),
+  const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & {
+    startTime?: string;
+    image?: string;
+    colorVar?: string;
+    description?: string;
   };
+  const sport = isCustom
+    ? {
+        id: "custom",
+        name: (ov as any).name ?? "Custom session",
+        tagline: (ov as any).tagline ?? "",
+        location: (ov as any).location ?? "",
+        duration: (ov as any).duration ?? 60,
+        difficulty: (ov as any).difficulty ?? "Medium",
+        equipment: ((ov as any).equipment ?? []) as string[],
+        warmup: ((ov as any).warmup ?? []) as string[],
+        workout: ((ov as any).workout ?? []) as Array<{ title: string; detail: string }>,
+        description: (ov as any).description ?? "",
+        image: (ov as any).image ?? "",
+        colorVar: (ov as any).colorVar ?? "primary",
+        outdoor: false,
+      }
+    : {
+        ...baseSport!,
+        ...(ov.name ? { name: ov.name } : {}),
+        ...(ov.tagline ? { tagline: ov.tagline } : {}),
+        ...(ov.location ? { location: ov.location } : {}),
+        ...(ov.duration ? { duration: ov.duration } : {}),
+        ...(ov.difficulty ? { difficulty: ov.difficulty } : {}),
+        ...(ov.equipment && (ov.equipment as string[]).length ? { equipment: ov.equipment } : {}),
+        ...(ov.warmup && (ov.warmup as string[]).length ? { warmup: ov.warmup } : {}),
+        ...(ov.workout && (ov.workout as Array<{title: string; detail: string}>).length ? { workout: ov.workout } : {}),
+      };
   const overrideNotes = (sessionQ.data?.overrides as { notes?: string } | undefined)?.notes;
 
   const attendanceQ = useQuery({
@@ -114,13 +140,20 @@ function ActivityPage() {
     <div className="pb-28 stagger">
       {/* Hero */}
       <div className="relative">
-        <img
-          src={sport.image}
-          alt={sport.name}
-          width={800}
-          height={1000}
-          className="w-full aspect-[4/5] object-cover opacity-80"
-        />
+        {sport.image ? (
+          <img
+            src={sport.image}
+            alt={sport.name}
+            width={800}
+            height={1000}
+            className="w-full aspect-[4/5] object-cover opacity-80"
+          />
+        ) : (
+          <div
+            className="w-full aspect-[4/5]"
+            style={{ background: `linear-gradient(180deg, color-mix(in srgb, var(--color-${sport.colorVar}) 60%, transparent), var(--color-background))` }}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-background/60" />
         <Link
           to="/"
@@ -132,12 +165,14 @@ function ActivityPage() {
           {dayLabel} · {timeLabel}
         </div>
         <div className="absolute bottom-0 inset-x-0 p-6">
-          <span
-            className="inline-block px-2 py-1 font-mono text-[10px] font-bold uppercase rounded mb-3"
-            style={{ background: `var(--color-${sport.colorVar})`, color: "hsl(220 15% 5%)" }}
-          >
-            {sport.tagline}
-          </span>
+          {sport.tagline && (
+            <span
+              className="inline-block px-2 py-1 font-mono text-[10px] font-bold uppercase rounded mb-3"
+              style={{ background: `var(--color-${sport.colorVar})`, color: "hsl(220 15% 5%)" }}
+            >
+              {sport.tagline}
+            </span>
+          )}
           <h1 className="font-display text-6xl uppercase leading-[0.85] tracking-tight">
             {sport.name}
           </h1>
