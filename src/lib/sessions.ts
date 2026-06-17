@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sessionTime, sportFor, SPORTS, type Sport, type SportId } from "@/lib/data";
 
-export type ScheduleSportId = SportId | "rest";
+export type ScheduleSportId = SportId | "rest" | "custom";
 
 export interface SessionOverrides {
   name?: string;
@@ -14,6 +14,12 @@ export interface SessionOverrides {
   workout?: Array<{ title: string; detail: string }>;
   notes?: string;
   startTime?: string; // "HH:MM"
+  /** Custom-only: image URL for the plan card / hero */
+  image?: string;
+  /** Custom-only: color token (boxing|cali|basket|volley) */
+  colorVar?: string;
+  /** Custom-only: short description shown on activity page */
+  description?: string;
 }
 
 export interface SessionRow {
