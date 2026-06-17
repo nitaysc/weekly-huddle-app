@@ -220,16 +220,17 @@ function PlanPage() {
         </div>
       </div>
 
-      {editing && isOwner && (() => {
+      {editing && isOwner && activeCrew && (() => {
         const resolved = resolvedSportFor(editing, sessions.data);
         return (
           <EditDaySheet
             date={editing}
             row={resolved.row}
             currentSport={resolved.sportId}
+            crewId={activeCrew.id}
             onClose={() => setEditing(null)}
             onSave={async (sport, overrides) => {
-              await setSessionOverrides(activeCrew!.id, editing, sport, overrides);
+              await setSessionOverrides(activeCrew.id, editing, sport, overrides);
               invalidateAll();
               setEditing(null);
             }}
