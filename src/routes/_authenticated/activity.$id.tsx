@@ -17,6 +17,9 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
     date: typeof search.date === "string" ? search.date : undefined,
   }),
   head: ({ params }) => {
+    if (params.id === "custom") {
+      return { meta: [{ title: "Custom session — Strike & Flow" }] };
+    }
     const s = SPORTS[params.id as SportId];
     return {
       meta: [
@@ -27,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
     };
   },
   loader: ({ params }) => {
+    if (params.id === "custom") return null;
     const s = SPORTS[params.id as SportId];
     if (!s) throw notFound();
     return null;
@@ -48,7 +52,8 @@ export const Route = createFileRoute("/_authenticated/activity/$id")({
 function ActivityPage() {
   const { id } = Route.useParams();
   const { date: dateParam } = Route.useSearch();
-  const baseSport = SPORTS[id as SportId];
+  const isCustom = id === "custom";
+  const baseSport = isCustom ? null : SPORTS[id as SportId];
   const { activeCrew } = useActiveCrew();
   const profile = useMyProfile();
   const members = useCrewMembers(activeCrew?.id);
@@ -59,7 +64,7 @@ function ActivityPage() {
   // next rotation day for this sport.
   const target = dateParam
     ? parseDateKey(dateParam)
-    : (findNextDateForSport(id as SportId) ?? new Date());
+    : (isCustom ? new Date() : (findNextDateForSport(id as SportId) ?? new Date()));
 
   const sessionQ = useQuery({
     queryKey: ["session-for", activeCrew?.id, toDateKey(target)],
@@ -69,18 +74,39 @@ function ActivityPage() {
 
 
   // Merge per-session overrides on top of the default sport definition
-  const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & { startTime?: string };
-  const sport = {
-    ...baseSport,
-    ...(ov.name ? { name: ov.name } : {}),
-    ...(ov.tagline ? { tagline: ov.tagline } : {}),
-    ...(ov.location ? { location: ov.location } : {}),
-    ...(ov.duration ? { duration: ov.duration } : {}),
-    ...(ov.difficulty ? { difficulty: ov.difficulty } : {}),
-    ...(ov.equipment && (ov.equipment as string[]).length ? { equipment: ov.equipment } : {}),
-    ...(ov.warmup && (ov.warmup as string[]).length ? { warmup: ov.warmup } : {}),
-    ...(ov.workout && (ov.workout as Array<{title: string; detail: string}>).length ? { workout: ov.workout } : {}),
+  const ov = (sessionQ.data?.overrides ?? {}) as Partial<typeof baseSport> & {
+    startTime?: string;
+    image?: string;
+    colorVar?: string;
+    description?: string;
   };
+  const sport = isCustom
+    ? {
+        id: "custom",
+        name: (ov as any).name ?? "Custom session",
+        tagline: (ov as any).tagline ?? "",
+        location: (ov as any).location ?? "",
+        duration: (ov as any).duration ?? 60,
+        difficulty: (ov as any).difficulty ?? "Medium",
+        equipment: ((ov as any).equipment ?? []) as string[],
+        warmup: ((ov as any).warmup ?? []) as string[],
+        workout: ((ov as any).workout ?? []) as Array<{ title: string; detail: string }>,
+        description: (ov as any).description ?? "",
+        image: (ov as any).image ?? "",
+        colorVar: (ov as any).colorVar ?? "primary",
+        outdoor: false,
+      }
+    : {
+        ...baseSport!,
+        ...(ov.name ? { name: ov.name } : {}),
+        ...(ov.tagline ? { tagline: ov.tagline } : {}),
+        ...(ov.location ? { location: ov.location } : {}),
+        ...(ov.duration ? { duration: ov.duration } : {}),
+        ...(ov.difficulty ? { difficulty: ov.difficulty } : {}),
+        ...(ov.equipment && (ov.equipment as string[]).length ? { equipment: ov.equipment } : {}),
+        ...(ov.warmup && (ov.warmup as string[]).length ? { warmup: ov.warmup } : {}),
+        ...(ov.workout && (ov.workout as Array<{title: string; detail: string}>).length ? { workout: ov.workout } : {}),
+      };
   const overrideNotes = (sessionQ.data?.overrides as { notes?: string } | undefined)?.notes;
 
   const attendanceQ = useQuery({
