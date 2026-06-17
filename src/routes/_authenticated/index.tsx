@@ -9,6 +9,7 @@ import {
 } from "@/lib/data";
 import { Countdown } from "@/components/Countdown";
 import { Avatar } from "@/components/Avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useActiveCrew, useCrewMembers, useMyProfile, useSignOut,
 } from "@/hooks/use-crew";
@@ -83,8 +84,28 @@ function HomePage() {
 
   if (!next || !activeCrew) {
     return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground font-mono text-xs uppercase">
-        Loading…
+      <div className="pb-28 stagger animate-in w-full">
+        <header className="px-6 pt-10 pb-5 flex justify-between items-end">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-32 rounded-full" />
+            <Skeleton className="h-8 w-48 rounded-full" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-10 rounded-full" />
+            <Skeleton className="size-10 rounded-full" />
+          </div>
+        </header>
+        <section className="px-4 mb-8">
+          <Skeleton className="w-full aspect-[4/5] rounded-3xl" />
+        </section>
+        <section className="px-6 space-y-4">
+          <Skeleton className="h-4 w-24 rounded-full" />
+          <div className="flex gap-4">
+            <Skeleton className="size-14 rounded-full" />
+            <Skeleton className="size-14 rounded-full" />
+            <Skeleton className="size-14 rounded-full" />
+          </div>
+        </section>
       </div>
     );
   }
