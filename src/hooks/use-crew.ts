@@ -136,13 +136,14 @@ export async function createCrew(name: string) {
   // try a few invite codes until unique
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateInviteCode();
-    const { data, error } = await supabase
-      .from("crews")
-      .insert({ name, invite_code: code, created_by: u.user.id })
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("create_crew", {
+      _name: name,
+      _invite_code: code,
+    });
     if (!error) return data as CrewRow;
-    if (!String(error.message).toLowerCase().includes("duplicate")) throw error;
+    const isDuplicateInviteCode =
+      error.code === "23505" || String(error.message).toLowerCase().includes("duplicate");
+    if (!isDuplicateInviteCode) throw error;
   }
   throw new Error("Could not generate invite code");
 }
