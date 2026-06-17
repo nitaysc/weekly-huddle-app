@@ -104,13 +104,17 @@ function PlanPage() {
       <div className="px-4 space-y-3 animate-in">
         {days.map((d) => {
           const { sportId, row } = resolvedSportFor(d, sessions.data);
-          const s = sportId && sportId !== "rest" ? SPORTS[sportId as SportId] : null;
+          const isCustom = sportId === "custom";
+          const s = sportId && sportId !== "rest" && !isCustom ? SPORTS[sportId as SportId] : null;
+          const hasContent = !!s || isCustom;
           const isToday = d.toDateString() === new Date().toDateString();
           const sessionRow = row;
           const ov = (row?.overrides ?? {}) as SessionOverrides;
-          const displayName = ov.name ?? s?.name;
-          const displayLocation = ov.location ?? s?.location;
-          const displayDuration = ov.duration ?? s?.duration;
+          const displayName = ov.name ?? s?.name ?? "Custom session";
+          const displayLocation = ov.location ?? s?.location ?? "";
+          const displayDuration = ov.duration ?? s?.duration ?? 60;
+          const displayImage = isCustom ? (ov.image ?? "") : (s?.image ?? "");
+          const displayColorVar = isCustom ? (ov.colorVar ?? "primary") : (s?.colorVar ?? "primary");
           const displayStart = row?.starts_at ? new Date(row.starts_at) : sessionTime(d);
           const startLabel = `${displayStart.getHours().toString().padStart(2, "0")}:${displayStart.getMinutes().toString().padStart(2, "0")}`;
           return (
@@ -131,22 +135,31 @@ function PlanPage() {
               )}
               {row?.is_override && (
                 <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 font-mono text-[8px] uppercase font-bold tracking-wider rounded bg-primary text-primary-foreground">
-                  Custom
+                  {isCustom ? "Custom plan" : "Custom"}
                 </span>
               )}
-              {s ? (
+              {hasContent ? (
                 <Link
                   to="/activity/$id"
-                  params={{ id: s.id }}
+                  params={{ id: isCustom ? "custom" : (s!.id as string) }}
                   search={{ date: toDateKey(d) }}
                   className="flex gap-4 p-3 active:scale-[0.99] transition-transform"
                 >
-                  <img
-                    src={s.image}
-                    alt={displayName ?? s.name}
-                    loading="lazy"
-                    className="w-20 h-20 rounded-xl object-cover shrink-0"
-                  />
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt={displayName}
+                      loading="lazy"
+                      className="w-20 h-20 rounded-xl object-cover shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-20 h-20 rounded-xl shrink-0 grid place-items-center font-display text-xl uppercase"
+                      style={{ background: `color-mix(in srgb, var(--color-${displayColorVar}) 25%, var(--color-surface))` }}
+                    >
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="font-mono text-[10px] uppercase text-muted-foreground tracking-widest">
@@ -162,10 +175,10 @@ function PlanPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <span
                         className="size-2 rounded-full"
-                        style={{ background: `var(--color-${s.colorVar})` }}
+                        style={{ background: `var(--color-${displayColorVar})` }}
                       />
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {startLabel} · {displayDuration} min · {displayLocation}
+                        {startLabel} · {displayDuration} min{displayLocation ? ` · ${displayLocation}` : ""}
                       </p>
                     </div>
                     {sessionRow ? (
