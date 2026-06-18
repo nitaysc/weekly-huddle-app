@@ -73,7 +73,7 @@ export const getThreadMessages = createServerFn({ method: "POST" })
     const messages: PersistedMessage[] = (rows ?? []).map((r) => ({
       id: (r.sdk_message_id as string) || (r.id as string),
       role: r.role as PersistedMessage["role"],
-      parts: (r.parts as unknown[]) ?? [],
+      parts: (r.parts as Json) ?? [],
     }));
     return messages;
   });
