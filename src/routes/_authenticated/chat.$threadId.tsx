@@ -286,7 +286,8 @@ function ChatThreadInner({ threadId, crewId, initialMessages, onBack }: InnerPro
 function useChatTransport(accessToken: string | null, threadId: string, crewId: string | null) {
   return new DefaultChatTransport({
     api: "/api/chat",
-    headers: () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    headers: (): Record<string, string> =>
+      accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     body: () => ({ threadId, crewId }),
   });
 }
