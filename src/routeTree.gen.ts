@@ -21,6 +21,8 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedActivityIdRouteImport } from './routes/_authenticated/activity.$id'
 import { Route as ApiPublicHooksSessionRemindersRouteImport } from './routes/api/public/hooks/session-reminders'
+import { Route as ApiPublicHooksPreSessionRouteImport } from './routes/api/public/hooks/pre-session'
+import { Route as ApiPublicHooksDailyTipRouteImport } from './routes/api/public/hooks/daily-tip'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -83,6 +85,17 @@ const ApiPublicHooksSessionRemindersRoute =
     path: '/api/public/hooks/session-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksPreSessionRoute =
+  ApiPublicHooksPreSessionRouteImport.update({
+    id: '/api/public/hooks/pre-session',
+    path: '/api/public/hooks/pre-session',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksDailyTipRoute = ApiPublicHooksDailyTipRouteImport.update({
+  id: '/api/public/hooks/daily-tip',
+  path: '/api/public/hooks/daily-tip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -95,6 +108,8 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRoutesByTo {
@@ -108,6 +123,8 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRoutesById {
@@ -123,6 +140,8 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activity/$id': typeof AuthenticatedActivityIdRoute
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRouteTypes {
@@ -138,6 +157,8 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/activity/$id'
     | '/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -151,6 +172,8 @@ export interface FileRouteTypes {
     | '/'
     | '/activity/$id'
     | '/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   id:
     | '__root__'
@@ -165,6 +188,8 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/activity/$id'
     | '/_authenticated/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   fileRoutesById: FileRoutesById
 }
@@ -172,6 +197,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiPublicHooksDailyTipRoute: typeof ApiPublicHooksDailyTipRoute
+  ApiPublicHooksPreSessionRoute: typeof ApiPublicHooksPreSessionRoute
   ApiPublicHooksSessionRemindersRoute: typeof ApiPublicHooksSessionRemindersRoute
 }
 
@@ -261,6 +288,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSessionRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/pre-session': {
+      id: '/api/public/hooks/pre-session'
+      path: '/api/public/hooks/pre-session'
+      fullPath: '/api/public/hooks/pre-session'
+      preLoaderRoute: typeof ApiPublicHooksPreSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/daily-tip': {
+      id: '/api/public/hooks/daily-tip'
+      path: '/api/public/hooks/daily-tip'
+      fullPath: '/api/public/hooks/daily-tip'
+      preLoaderRoute: typeof ApiPublicHooksDailyTipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -302,6 +343,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiPublicHooksDailyTipRoute: ApiPublicHooksDailyTipRoute,
+  ApiPublicHooksPreSessionRoute: ApiPublicHooksPreSessionRoute,
   ApiPublicHooksSessionRemindersRoute: ApiPublicHooksSessionRemindersRoute,
 }
 export const routeTree = rootRouteImport
