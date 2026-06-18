@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -32,6 +33,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/': typeof AuthenticatedIndexRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/plan': typeof AuthenticatedPlanRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activity/$id': typeof AuthenticatedActivityIdRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/plan'
     | '/stats'
+    | '/api/chat'
     | '/activity/$id'
     | '/api/public/hooks/session-reminders'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/plan'
     | '/stats'
+    | '/api/chat'
     | '/'
     | '/activity/$id'
     | '/api/public/hooks/session-reminders'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/plan'
     | '/_authenticated/stats'
+    | '/api/chat'
     | '/_authenticated/'
     | '/_authenticated/activity/$id'
     | '/api/public/hooks/session-reminders'
@@ -134,6 +146,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiChatRoute: typeof ApiChatRoute
   ApiPublicHooksSessionRemindersRoute: typeof ApiPublicHooksSessionRemindersRoute
 }
 
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/stats': {
       id: '/_authenticated/stats'
@@ -229,6 +249,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiChatRoute: ApiChatRoute,
   ApiPublicHooksSessionRemindersRoute: ApiPublicHooksSessionRemindersRoute,
 }
 export const routeTree = rootRouteImport
