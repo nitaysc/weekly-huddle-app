@@ -69,10 +69,10 @@ export const getThreadMessages = createServerFn({ method: "POST" })
       .eq("thread_id", data.threadId)
       .order("created_at", { ascending: true });
     if (error) throw error;
-    const messages: UIMessage[] = (rows ?? []).map((r) => ({
+    const messages: PersistedMessage[] = (rows ?? []).map((r) => ({
       id: (r.sdk_message_id as string) || (r.id as string),
-      role: r.role as UIMessage["role"],
-      parts: (r.parts as UIMessage["parts"]) ?? [],
+      role: r.role as PersistedMessage["role"],
+      parts: (r.parts as unknown[]) ?? [],
     }));
     return messages;
   });
