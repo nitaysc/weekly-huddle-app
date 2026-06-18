@@ -12,12 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedCrewRouteImport } from './routes/_authenticated/crew'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedActivityIdRouteImport } from './routes/_authenticated/activity.$id'
 import { Route as ApiPublicHooksSessionRemindersRouteImport } from './routes/api/public/hooks/session-reminders'
+import { Route as ApiPublicHooksPreSessionRouteImport } from './routes/api/public/hooks/pre-session'
+import { Route as ApiPublicHooksDailyTipRouteImport } from './routes/api/public/hooks/daily-tip'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -32,6 +37,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
@@ -53,6 +63,17 @@ const AuthenticatedCrewRoute = AuthenticatedCrewRouteImport.update({
   path: '/crew',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedChatThreadIdRoute =
+  AuthenticatedChatThreadIdRouteImport.update({
+    id: '/$threadId',
+    path: '/$threadId',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
 const AuthenticatedActivityIdRoute = AuthenticatedActivityIdRouteImport.update({
   id: '/activity/$id',
   path: '/activity/$id',
@@ -64,37 +85,63 @@ const ApiPublicHooksSessionRemindersRoute =
     path: '/api/public/hooks/session-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksPreSessionRoute =
+  ApiPublicHooksPreSessionRouteImport.update({
+    id: '/api/public/hooks/pre-session',
+    path: '/api/public/hooks/pre-session',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksDailyTipRoute = ApiPublicHooksDailyTipRouteImport.update({
+  id: '/api/public/hooks/daily-tip',
+  path: '/api/public/hooks/daily-tip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
+  '/chat': typeof AuthenticatedChatRouteWithChildren
   '/crew': typeof AuthenticatedCrewRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
+  '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/chat': typeof AuthenticatedChatRouteWithChildren
   '/crew': typeof AuthenticatedCrewRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/': typeof AuthenticatedIndexRoute
   '/activity/$id': typeof AuthenticatedActivityIdRoute
+  '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/crew': typeof AuthenticatedCrewRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/plan': typeof AuthenticatedPlanRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
+  '/api/chat': typeof ApiChatRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activity/$id': typeof AuthenticatedActivityIdRoute
+  '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/api/public/hooks/daily-tip': typeof ApiPublicHooksDailyTipRoute
+  '/api/public/hooks/pre-session': typeof ApiPublicHooksPreSessionRoute
   '/api/public/hooks/session-reminders': typeof ApiPublicHooksSessionRemindersRoute
 }
 export interface FileRouteTypes {
@@ -102,38 +149,56 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/chat'
     | '/crew'
     | '/onboarding'
     | '/plan'
     | '/stats'
+    | '/api/chat'
     | '/activity/$id'
+    | '/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/chat'
     | '/crew'
     | '/onboarding'
     | '/plan'
     | '/stats'
+    | '/api/chat'
     | '/'
     | '/activity/$id'
+    | '/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/chat'
     | '/_authenticated/crew'
     | '/_authenticated/onboarding'
     | '/_authenticated/plan'
     | '/_authenticated/stats'
+    | '/api/chat'
     | '/_authenticated/'
     | '/_authenticated/activity/$id'
+    | '/_authenticated/chat/$threadId'
+    | '/api/public/hooks/daily-tip'
+    | '/api/public/hooks/pre-session'
     | '/api/public/hooks/session-reminders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiPublicHooksDailyTipRoute: typeof ApiPublicHooksDailyTipRoute
+  ApiPublicHooksPreSessionRoute: typeof ApiPublicHooksPreSessionRoute
   ApiPublicHooksSessionRemindersRoute: typeof ApiPublicHooksSessionRemindersRoute
 }
 
@@ -159,6 +224,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/stats': {
       id: '/_authenticated/stats'
@@ -188,6 +260,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat/$threadId': {
+      id: '/_authenticated/chat/$threadId'
+      path: '/$threadId'
+      fullPath: '/chat/$threadId'
+      preLoaderRoute: typeof AuthenticatedChatThreadIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
     '/_authenticated/activity/$id': {
       id: '/_authenticated/activity/$id'
       path: '/activity/$id'
@@ -202,10 +288,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSessionRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/pre-session': {
+      id: '/api/public/hooks/pre-session'
+      path: '/api/public/hooks/pre-session'
+      fullPath: '/api/public/hooks/pre-session'
+      preLoaderRoute: typeof ApiPublicHooksPreSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/daily-tip': {
+      id: '/api/public/hooks/daily-tip'
+      path: '/api/public/hooks/daily-tip'
+      fullPath: '/api/public/hooks/daily-tip'
+      preLoaderRoute: typeof ApiPublicHooksDailyTipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedChatRouteChildren {
+  AuthenticatedChatThreadIdRoute: typeof AuthenticatedChatThreadIdRoute
+}
+
+const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
+  AuthenticatedChatThreadIdRoute: AuthenticatedChatThreadIdRoute,
+}
+
+const AuthenticatedChatRouteWithChildren =
+  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedCrewRoute: typeof AuthenticatedCrewRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPlanRoute: typeof AuthenticatedPlanRoute
@@ -215,6 +327,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedCrewRoute: AuthenticatedCrewRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPlanRoute: AuthenticatedPlanRoute,
@@ -229,18 +342,11 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiPublicHooksDailyTipRoute: ApiPublicHooksDailyTipRoute,
+  ApiPublicHooksPreSessionRoute: ApiPublicHooksPreSessionRoute,
   ApiPublicHooksSessionRemindersRoute: ApiPublicHooksSessionRemindersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
